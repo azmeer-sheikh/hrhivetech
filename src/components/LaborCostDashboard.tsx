@@ -38,19 +38,48 @@ interface ActiveEmployee {
   costSoFar: number;
 }
 
+type FormulaType = 'standard' | 'extended' | 'custom';
+
+interface Formula {
+  label: string;
+  hoursPerMonth: number;
+  description: string;
+}
+
+const FORMULAS: Record<FormulaType, Formula> = {
+  standard: {
+    label: 'Standard (160 hrs/month)',
+    hoursPerMonth: 160,
+    description: '8 hours × 20 working days',
+  },
+  extended: {
+    label: 'Extended (176 hrs/month)',
+    hoursPerMonth: 176,
+    description: '8 hours × 22 working days',
+  },
+  custom: {
+    label: 'Custom (184 hrs/month)',
+    hoursPerMonth: 184,
+    description: '8 hours × 23 working days',
+  },
+};
+
 export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDashboardProps) {
   const today = new Date().toISOString().split('T')[0];
   const [currentCost, setCurrentCost] = useState(0);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'cost' | 'time' | 'name'>('cost');
+  const [selectedFormula, setSelectedFormula] = useState<FormulaType>('standard');
+  const [customHours, setCustomHours] = useState(160);
 
-  // Calculate hourly rate from monthly salary (160 hours/month)
+  // Calculate hourly rate from monthly salary using selected formula
   const getHourlyRate = (employee: Employee): number => {
     if (employee.hourlyRate) return employee.hourlyRate;
-    return employee.salary / 160; // Convert monthly salary to hourly
+    const hoursPerMonth = selectedFormula === 'custom' ? customHours : FORMULAS[selectedFormula].hoursPerMonth;
+    return employee.salary / hoursPerMonth; // Convert monthly salary to hourly
   };
 
-  // Get active employees (clocked in today without checkout)
+  // Get active employees (clocked in today without checkout) - recalculates when formula changes
   const activeEmployees = useMemo((): ActiveEmployee[] => {
     const todayRecords = attendanceRecords.filter(r => r.date === today);
     
@@ -85,7 +114,7 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
         };
       })
       .filter(emp => emp !== null) as ActiveEmployee[];
-  }, [employees, attendanceRecords, today]);
+  }, [employees, attendanceRecords, today, selectedFormula, customHours]);
 
   // Calculate burn rate and initial cost
   const { burnRatePerSecond, totalDailyCost, burnRatePerHour } = useMemo(() => {
@@ -278,6 +307,20 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <Select value={selectedFormula} onValueChange={(value: any) => setSelectedFormula(value)}>
+                <SelectTrigger className="w-[240px]">
+                  <DollarSign className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Select formula" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(FORMULAS) as FormulaType[]).map(key => (
+                    <SelectItem key={key} value={key}>
+                      {FORMULAS[key].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                 <SelectTrigger className="w-[220px]">
                   <Filter className="w-4 h-4 mr-2" />
@@ -405,7 +448,8 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
             How Labor Costs are Calculated
           </h3>
           <div className="space-y-2 text-sm text-blue-800">
-            <p>• <strong>Hourly Rate:</strong> Monthly salary ÷ 160 hours (standard work month: 8 hours × 20 days)</p>
+            <p>• <strong>Active Formula:</strong> {FORMULAS[selectedFormula].label} - {FORMULAS[selectedFormula].description}</p>
+            <p>• <strong>Hourly Rate:</strong> Monthly salary ÷ {selectedFormula === 'custom' ? customHours : FORMULAS[selectedFormula].hoursPerMonth} hours</p>
             <p>• <strong>Active Employees:</strong> Currently clocked in (Present/Late status with check-in time, no check-out)</p>
             <p>• <strong>Burn Rate:</strong> Sum of all active hourly rates, calculated per second for live updates</p>
             <p>• <strong>Cost So Far:</strong> Hours worked × hourly rate (updates live every second)</p>

@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileText, Upload, Download, Trash2, Search, Filter, File } from 'lucide-react';
+import { documentAPI } from '../services/api';
 
 interface Employee {
-  id: number;
+  _id?: string;
+  id?: number | string;
   name: string;
   position: string;
 }
 
 export interface Document {
-  id: number;
-  employeeId: number;
+  _id?: string;
+  id?: string | number;
+  employeeId: string | number;
   employeeName: string;
   documentName: string;
   documentType: 'Contract' | 'ID Card' | 'Resume' | 'Certificate' | 'Policy' | 'Other';
@@ -28,39 +31,115 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  const [selectedEmployee, setSelectedEmployee] = useState<number>(0);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [documentName, setDocumentName] = useState('');
   const [documentType, setDocumentType] = useState<Document['documentType']>('Contract');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const employee = employees.find(emp => emp.id === selectedEmployee);
-    if (!employee) return;
+  useEffect(() => {
+    loadDocuments();
+  }, []);
 
-    const newDocument: Document = {
-      id: documents.length + 1,
-      employeeId: selectedEmployee,
-      employeeName: employee.name,
-      documentName,
-      documentType,
-      uploadedBy: 'Admin User',
-      uploadedAt: new Date().toISOString(),
-      fileSize: '2.4 MB',
-    };
-
-    setDocuments([...documents, newDocument]);
-    
-    // Reset form
-    setShowAddModal(false);
-    setSelectedEmployee(0);
-    setDocumentName('');
-    setDocumentType('Contract');
+  const mapTypeToBackend = (type: Document['documentType']) => {
+    switch (type) {
+      case 'ID Card':
+        return 'ID Proof';
+      case 'Resume':
+        return 'Educational Certificate';
+      case 'Contract':
+        return 'Contract';
+      case 'Certificate':
+        return 'Certificate';
+      case 'Policy':
+        return 'Policy';
+      default:
+        return 'Other';
+    }
   };
 
-  const deleteDocument = (id: number) => {
+  const mapTypeFromBackend = (type: string): Document['documentType'] => {
+    if (type === 'ID Proof') return 'ID Card';
+    if (type === 'Educational Certificate') return 'Resume';
+    if (type === 'Certificate' || type === 'Policy' || type === 'Contract') return type as Document['documentType'];
+    return 'Other';
+  };
+
+  const loadDocuments = async () => {
+    try {
+      const response = await documentAPI.getAll(1, 500);
+      const raw = Array.isArray(response?.data) ? response.data : [];
+
+      const formatted: Document[] = raw.map((item: any) => {
+        const employeeName = item.employee?.firstName
+          ? `${item.employee.firstName} ${item.employee.lastName || ''}`.trim()
+          : item.employeeName || 'Employee';
+
+        return {
+          _id: item._id,
+          id: item._id,
+          employeeId: item.employee?._id || item.employee,
+          employeeName,
+          documentName: item.title || item.fileName || 'Document',
+          documentType: mapTypeFromBackend(item.documentType),
+          uploadedBy: item.uploadedBy?.username || item.uploadedBy?.email || 'System',
+          uploadedAt: item.createdAt || new Date().toISOString(),
+          fileSize: item.fileSize ? (item.fileSize < 1024 ? `${item.fileSize} bytes` : item.fileSize < 1048576 ? `${(item.fileSize / 1024).toFixed(1)} KB` : `${(item.fileSize / 1048576).toFixed(1)} MB`) : '—',
+        };
+      });
+
+      setDocuments(formatted);
+    } catch (err) {
+      console.error('Failed to load documents', err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployee) return;
+
+    setUploading(true);
+    try {
+      const employee = employees.find(emp => String(emp._id || emp.id) === String(selectedEmployee));
+      const safeName = documentName || selectedFile?.name || 'Document';
+      const fileName = selectedFile?.name || `${safeName}.pdf`;
+      const payload = {
+        title: safeName,
+        documentType: mapTypeToBackend(documentType),
+        employee: String(selectedEmployee),
+        description: 'Uploaded via UI',
+        fileName,
+        fileUrl: `/uploads/documents/${Date.now()}-${fileName.replace(/\s+/g, '-')}`,
+        fileSize: selectedFile?.size || 0,
+        employeeName: employee?.name || 'Employee',
+      };
+
+      await documentAPI.upload(payload);
+      await loadDocuments();
+
+      // Reset form
+      setShowAddModal(false);
+      setSelectedEmployee('');
+      setDocumentName('');
+      setDocumentType('Contract');
+      setSelectedFile(null);
+    } catch (err) {
+      console.error('Failed to upload document', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const deleteDocument = async (id?: string | number) => {
+    if (!id) return;
     if (confirm('Are you sure you want to delete this document?')) {
-      setDocuments(documents.filter(d => d.id !== id));
+      try {
+        await documentAPI.delete(String(id));
+        await loadDocuments();
+      } catch (err) {
+        console.error('Failed to delete document', err);
+      }
     }
   };
 
@@ -138,21 +217,21 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
       {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredDocuments.map((doc) => (
-          <div key={doc.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
+          <div key={doc._id || doc.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
                 <File className="w-6 h-6 text-gray-600" />
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => alert('Download functionality would be implemented here')}
+                  onClick={() => alert('Download functionality would be implemented here (link stored in fileUrl)')}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   title="Download"
                 >
                   <Download className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => deleteDocument(doc.id)}
+                  onClick={() => deleteDocument(doc._id || doc.id)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete"
                 >
@@ -218,13 +297,13 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                   </label>
                   <select
                     value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(Number(e.target.value))}
+                    onChange={(e) => setSelectedEmployee(e.target.value)}
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
                     required
                   >
-                    <option value={0}>Choose an employee</option>
+                    <option value="">Choose an employee</option>
                     {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
+                      <option key={emp._id || emp.id} value={emp._id || emp.id}>
                         {emp.name} - {emp.position}
                       </option>
                     ))}
@@ -274,15 +353,45 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                     Upload File
                     <span className="!text-red-500">*</span>
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer bg-gradient-to-br from-gray-50 to-blue-50">
+                  <div
+                    className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer bg-gradient-to-br from-gray-50 to-blue-50"
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        setSelectedFile(file);
+                        setDocumentName(file.name.replace(/\.[^.]+$/, ''));
+                      }
+                    }}
+                  >
                     <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
                       <Upload className="w-8 h-8 !text-blue-600" />
                     </div>
                     <p className="!text-gray-900 !mb-2 font-medium">Click to upload or drag and drop</p>
-                    <p className="text-sm !text-gray-600 !mb-0">
+                    <p className="text-sm !text-gray-600 !mb-1">
                       Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)
                     </p>
+                    {selectedFile && (
+                      <p className="text-sm text-blue-700 font-medium !mb-0">
+                        Selected: {selectedFile.name}
+                      </p>
+                    )}
                   </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedFile(file);
+                        setDocumentName(file.name.replace(/\.[^.]+$/, ''));
+                      }
+                    }}
+                  />
                 </div>
 
                 {/* Info Box */}

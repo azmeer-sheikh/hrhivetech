@@ -96,6 +96,9 @@ export function Analytics({ employees, attendanceRecords }: AnalyticsProps) {
     average: Math.round(data.total / data.count),
   }));
 
+  const totalEmployees = employees.length;
+  const totalPayroll = Object.values(salaryByDept).reduce((sum, entry) => sum + (entry.total || 0), 0);
+
   const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
 
   return (
@@ -302,6 +305,10 @@ export function Analytics({ employees, attendanceRecords }: AnalyticsProps) {
               })}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-wrap gap-4 px-6 py-4 bg-gray-50 border-t border-gray-200 text-gray-800">
+          <span className="font-medium">Total Employees: {totalEmployees}</span>
+          <span className="font-medium">Total Payroll: PKR {totalPayroll.toLocaleString()}</span>
         </div>
       </div>
     </div>

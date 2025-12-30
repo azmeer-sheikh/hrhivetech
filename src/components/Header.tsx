@@ -115,7 +115,7 @@ export function Header({ onMenuClick, setActiveTab }: HeaderProps) {
                 {/* Avatar */}
                 <div className="relative">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md border-2 border-white">
-                    {user?.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'AD'}
+                    {user?.username ? user.username.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'AD'}
                   </div>
                   {/* Status Indicator */}
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white shadow-sm"></div>

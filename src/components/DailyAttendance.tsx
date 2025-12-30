@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Coffee, Search, Calendar as CalendarIcon, Users, Lock, Eye, EyeOff, Download, Filter, TrendingUp } from 'lucide-react';
 import { Pagination } from './Pagination';
+import { attendanceAPI } from '../services/api';
 
 interface Employee {
   id: number;
+  _id?: string; // MongoDB ObjectId
   name: string;
   position: string;
   department: string;
@@ -38,10 +40,45 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
   const [sortBy, setSortBy] = useState<'name' | 'department' | 'status'>('name');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9; // 3x3 grid
+  const [loading, setLoading] = useState(false);
 
   const getCurrentTime = () => {
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
+
+  // Load attendance from backend
+  const loadAttendance = async () => {
+    try {
+      setLoading(true);
+      const response = await attendanceAPI.getAll(1, 1000, {
+        startDate: today,
+        endDate: today
+      });
+
+      // Map backend data to frontend format
+      const mappedRecords = response.data.map((record: any) => ({
+        employeeId: record.employee._id,
+        date: record.date.split('T')[0],
+        status: record.status === 'On Leave' ? 'Leave' : record.status,
+        checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
+        checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
+        markedAt: record.createdAt,
+      }));
+
+      setAttendanceRecords(mappedRecords);
+    } catch (error) {
+      console.error('Failed to load attendance:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load attendance on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadAttendance();
+    }
+  }, [isAuthenticated, today]);
 
   // Auto-mark absent at 9 PM
   useEffect(() => {
@@ -86,7 +123,7 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
     }
   };
 
-  const markAttendance = (employeeId: number, status: AttendanceRecord['status']) => {
+  const markAttendance = async (employeeId: number, status: AttendanceRecord['status']) => {
     const existingRecord = attendanceRecords.find(
       r => r.employeeId === employeeId && r.date === today
     );
@@ -97,52 +134,122 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
       return;
     }
 
-    const newRecord: AttendanceRecord = {
-      employeeId,
-      date: today,
-      status,
-      checkIn: status === 'Present' || status === 'Late' ? getCurrentTime() : undefined,
-      checkOut: undefined,
-      markedAt: new Date().toISOString(),
-    };
+    try {
+      const now = new Date();
+      const dateTime = new Date(today);
+      
+      // Set check-in time based on status
+      let checkInTime = null;
+      let checkOutTime = null;
+      
+      if (status === 'Present' || status === 'Late') {
+        checkInTime = now;
+      }
 
-    setAttendanceRecords([...attendanceRecords, newRecord]);
+      const attendanceData = {
+        employee: employees.find(e => e.id === employeeId)?._id || employeeId,
+        date: today,
+        status: status === 'Leave' ? 'On Leave' : status,
+        checkIn: checkInTime,
+        checkOut: checkOutTime,
+      };
+
+      // Create in backend
+      await attendanceAPI.create(attendanceData);
+
+      const newRecord: AttendanceRecord = {
+        employeeId,
+        date: today,
+        status,
+        checkIn: status === 'Present' || status === 'Late' ? getCurrentTime() : undefined,
+        checkOut: undefined,
+        markedAt: new Date().toISOString(),
+      };
+
+      setAttendanceRecords([...attendanceRecords, newRecord]);
+      
+      // Reload to sync with backend
+      await loadAttendance();
+    } catch (error: any) {
+      console.error('Failed to mark attendance:', error);
+      alert(error.message || 'Failed to mark attendance');
+    }
   };
 
-  const markAllPresent = () => {
+  const markAllPresent = async () => {
     if (!confirm('Mark all unmarked employees as Present?')) return;
     
     const unmarkedEmployees = employees.filter(emp => 
       !attendanceRecords.some(r => r.employeeId === emp.id && r.date === today)
     );
 
-    const newRecords = unmarkedEmployees.map(emp => ({
-      employeeId: emp.id,
-      date: today,
-      status: 'Present' as const,
-      checkIn: getCurrentTime(),
-      checkOut: undefined,
-      markedAt: new Date().toISOString(),
-    }));
+    try {
+      const now = new Date();
+      
+      // Create records in backend
+      for (const emp of unmarkedEmployees) {
+        await attendanceAPI.create({
+          employee: emp._id || emp.id,
+          date: today,
+          status: 'Present',
+          checkIn: now,
+          checkOut: null,
+        });
+      }
 
-    setAttendanceRecords([...attendanceRecords, ...newRecords]);
+      const newRecords = unmarkedEmployees.map(emp => ({
+        employeeId: emp.id,
+        date: today,
+        status: 'Present' as const,
+        checkIn: getCurrentTime(),
+        checkOut: undefined,
+        markedAt: new Date().toISOString(),
+      }));
+
+      setAttendanceRecords([...attendanceRecords, ...newRecords]);
+      
+      // Reload to sync with backend
+      await loadAttendance();
+    } catch (error: any) {
+      console.error('Failed to mark all present:', error);
+      alert(error.message || 'Failed to mark all present');
+    }
   };
 
-  const markAllAbsent = () => {
+  const markAllAbsent = async () => {
     if (!confirm('Mark all unmarked employees as Absent?')) return;
     
     const unmarkedEmployees = employees.filter(emp => 
       !attendanceRecords.some(r => r.employeeId === emp.id && r.date === today)
     );
 
-    const newRecords = unmarkedEmployees.map(emp => ({
-      employeeId: emp.id,
-      date: today,
-      status: 'Absent' as const,
-      markedAt: new Date().toISOString(),
-    }));
+    try {
+      // Create records in backend
+      for (const emp of unmarkedEmployees) {
+        await attendanceAPI.create({
+          employee: emp._id || emp.id,
+          date: today,
+          status: 'Absent',
+          checkIn: null,
+          checkOut: null,
+        });
+      }
 
-    setAttendanceRecords([...attendanceRecords, ...newRecords]);
+      const newRecords = unmarkedEmployees.map(emp => ({
+        employeeId: emp.id,
+        date: today,
+        status: 'Absent' as const,
+        markedAt: new Date().toISOString(),
+      }));
+
+      setAttendanceRecords([...attendanceRecords, ...newRecords]);
+      
+      // Reload to sync with backend
+      await loadAttendance();
+    } catch (error: any) {
+      console.error('Failed to mark all absent:', error);
+      alert(error.message || 'Failed to mark all absent');
+    }
   };
 
   const exportToCSV = () => {

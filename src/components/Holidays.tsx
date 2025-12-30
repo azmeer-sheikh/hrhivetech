@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarDays, Plus, Trash2, Calendar } from 'lucide-react';
 import { Palmtree } from 'lucide-react';
+import { holidayAPI } from '../services/api';
 
 export interface Holiday {
-  id: number;
+  _id?: string;
+  id?: string | number;
   name: string;
   date: string;
   type: 'National' | 'Religious' | 'Company';
@@ -22,32 +24,83 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
   const [type, setType] = useState<Holiday['type']>('National');
   const [description, setDescription] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newHoliday: Holiday = {
-      id: holidays.length + 1,
-      name,
-      date,
-      type,
-      description,
-    };
+  useEffect(() => {
+    loadHolidays();
+  }, []);
 
-    setHolidays([...holidays, newHoliday].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    ));
-    
-    // Reset form
-    setShowAddModal(false);
-    setName('');
-    setDate('');
-    setType('National');
-    setDescription('');
+  const mapTypeToBackend = (t: Holiday['type']) => {
+    switch (t) {
+      case 'National':
+        return 'National Holiday';
+      case 'Religious':
+        return 'Regional Holiday';
+      case 'Company':
+        return 'Company Holiday';
+      default:
+        return 'Company Holiday';
+    }
   };
 
-  const deleteHoliday = (id: number) => {
+  const mapTypeFromBackend = (t: string): Holiday['type'] => {
+    if (t === 'National Holiday') return 'National';
+    if (t === 'Regional Holiday') return 'Religious';
+    if (t === 'Company Holiday') return 'Company';
+    if (t === 'Optional Holiday') return 'Company';
+    return 'Company';
+  };
+
+  const loadHolidays = async () => {
+    try {
+      const response = await holidayAPI.getAll();
+      const raw = Array.isArray(response?.data) ? response.data : [];
+
+      const formatted: Holiday[] = raw.map((h: any) => ({
+        _id: h._id,
+        id: h._id,
+        name: h.name,
+        date: h.date,
+        type: mapTypeFromBackend(h.type),
+        description: h.description || '',
+      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      setHolidays(formatted);
+    } catch (err) {
+      console.error('Failed to load holidays', err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      await holidayAPI.create({
+        name,
+        date,
+        type: mapTypeToBackend(type),
+        description,
+        isActive: true,
+      });
+      await loadHolidays();
+
+      setShowAddModal(false);
+      setName('');
+      setDate('');
+      setType('National');
+      setDescription('');
+    } catch (err) {
+      console.error('Failed to create holiday', err);
+    }
+  };
+
+  const deleteHoliday = async (id?: string | number) => {
+    if (!id) return;
     if (confirm('Are you sure you want to delete this holiday?')) {
-      setHolidays(holidays.filter(h => h.id !== id));
+      try {
+        await holidayAPI.delete(String(id));
+        await loadHolidays();
+      } catch (err) {
+        console.error('Failed to delete holiday', err);
+      }
     }
   };
 
@@ -97,7 +150,7 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
             <div className="space-y-4">
               {upcomingHolidays.map((holiday) => (
                 <div 
-                  key={holiday.id} 
+                  key={holiday._id || holiday.id} 
                   className="flex items-start gap-4 p-5 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 hover:shadow-md transition-all"
                 >
                   <div className="w-16 h-16 rounded-lg bg-white border border-gray-200 flex flex-col items-center justify-center flex-shrink-0 shadow-sm">
@@ -124,7 +177,7 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
                         </div>
                       </div>
                       <button
-                        onClick={() => deleteHoliday(holiday.id)}
+                        onClick={() => deleteHoliday(holiday._id || holiday.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                         title="Delete"
                       >
@@ -154,7 +207,7 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
             <div className="space-y-3">
               {pastHolidays.map((holiday) => (
                 <div 
-                  key={holiday.id} 
+                  key={holiday._id || holiday.id} 
                   className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 opacity-75"
                 >
                   <div className="w-14 h-14 rounded-lg bg-white border border-gray-200 flex flex-col items-center justify-center flex-shrink-0">
@@ -179,7 +232,7 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
                   </div>
 
                   <button
-                    onClick={() => deleteHoliday(holiday.id)}
+                    onClick={() => deleteHoliday(holiday._id || holiday.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                     title="Delete"
                   >

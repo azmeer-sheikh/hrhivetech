@@ -16,13 +16,15 @@ router.use(protect); // All routes require authentication
 
 router.get('/', getLeaves);
 router.get('/balance/:employeeId', getLeaveBalance);
-router.get('/:id', getLeave);
 router.post('/', createLeave);
+
+// These must come before /:id to avoid route conflicts
+router.put('/:id/approve', authorize('admin', 'hr', 'manager'), approveLeave);
+router.put('/:id/reject', authorize('admin', 'hr', 'manager'), rejectLeave);
+
+// Generic routes
+router.get('/:id', getLeave);
 router.put('/:id', updateLeave);
 router.delete('/:id', deleteLeave);
-
-// Admin, HR, and Manager can approve/reject
-router.patch('/:id/approve', authorize('admin', 'hr', 'manager'), approveLeave);
-router.patch('/:id/reject', authorize('admin', 'hr', 'manager'), rejectLeave);
 
 module.exports = router;

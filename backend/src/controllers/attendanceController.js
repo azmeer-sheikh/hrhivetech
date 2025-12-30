@@ -95,6 +95,61 @@ exports.checkIn = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Create attendance record
+// @route   POST /api/attendance
+// @access  Private
+exports.createAttendance = asyncHandler(async (req, res) => {
+  const { employee, date, status, checkIn, checkOut } = req.body;
+
+  // Check if attendance already exists for this employee and date
+  const attendanceDate = new Date(date);
+  attendanceDate.setHours(0, 0, 0, 0);
+  
+  const nextDay = new Date(attendanceDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  const existingAttendance = await Attendance.findOne({
+    employee,
+    date: {
+      $gte: attendanceDate,
+      $lt: nextDay
+    }
+  });
+
+  if (existingAttendance) {
+    // Update existing attendance
+    existingAttendance.status = status;
+    existingAttendance.checkIn = checkIn;
+    existingAttendance.checkOut = checkOut;
+    await existingAttendance.save();
+
+    const populated = await Attendance.findById(existingAttendance._id)
+      .populate('employee', 'firstName lastName employeeCode department');
+
+    return res.status(200).json({
+      success: true,
+      data: populated
+    });
+  }
+
+  // Create new attendance record
+  const attendance = await Attendance.create({
+    employee,
+    date: attendanceDate,
+    status,
+    checkIn,
+    checkOut
+  });
+
+  const populated = await Attendance.findById(attendance._id)
+    .populate('employee', 'firstName lastName employeeCode department');
+
+  res.status(201).json({
+    success: true,
+    data: populated
+  });
+});
+
 // @desc    Check out
 // @route   POST /api/attendance/check-out
 // @access  Private

@@ -3,6 +3,9 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+// Debug logging for development
+const isDevelopment = import.meta.env.DEV;
+
 // Helper function to make API calls with auth token
 async function apiCall<T>(
   endpoint: string,
@@ -22,17 +25,86 @@ async function apiCall<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `API Error: ${response.statusText}`);
+  // Log request in development
+  if (isDevelopment) {
+    console.log(`📡 API Request: ${options.method || 'GET'} ${url}`);
   }
 
-  return response.json();
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    // Log response status
+    if (isDevelopment) {
+      console.log(`📊 API Response: ${response.status} ${response.statusText}`);
+    }
+
+    // Handle various HTTP error codes
+    if (!response.ok) {
+      let errorMessage = `API Error: ${response.statusText}`;
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (parseError) {
+        // Response wasn't JSON, use statusText
+      }
+
+      // Handle 401 Unauthorized - clear token and redirect to login
+      if (response.status === 401) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        window.location.href = '/'; // Redirect to login
+        throw new Error('Session expired. Please login again.');
+      }
+
+      // Handle 403 Forbidden
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this resource.');
+      }
+
+      // Handle 404 Not Found
+      if (response.status === 404) {
+        throw new Error('Resource not found.');
+      }
+
+      // Handle 422 Unprocessable Entity (Validation errors)
+      if (response.status === 422) {
+        throw new Error(errorMessage);
+      }
+
+      // Handle 500 Server Error
+      if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.');
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    
+    // Log successful response in development
+    if (isDevelopment) {
+      console.log(`✅ API Success: ${url}`, data);
+    }
+
+    return data;
+  } catch (error) {
+    // Log fetch errors (network, CORS, etc.)
+    if (isDevelopment) {
+      console.error(`❌ API Error: ${url}`, error);
+    }
+
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      throw new Error(
+        `Cannot connect to backend at ${API_BASE_URL}. Make sure the backend server is running on http://localhost:5000`
+      );
+    }
+
+    throw error;
+  }
 }
 
 // ==================== Authentication APIs ====================
@@ -251,6 +323,12 @@ export const leaveAPI = {
       body: JSON.stringify({ rejectionReason }),
     });
   },
+
+  getBalance: async (employeeId: string) => {
+    return apiCall(`/leaves/balance/${employeeId}`, {
+      method: 'GET',
+    });
+  },
 };
 
 // ==================== Payroll APIs ====================
@@ -389,24 +467,11 @@ export const documentAPI = {
     });
   },
 
-  upload: async (formData: FormData) => {
-    const token = localStorage.getItem('authToken');
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/documents`, {
+  upload: async (documentData: Record<string, any>) => {
+    return apiCall('/documents', {
       method: 'POST',
-      body: formData,
-      headers,
+      body: JSON.stringify(documentData),
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to upload document');
-    }
-
-    return response.json();
   },
 
   delete: async (id: string) => {

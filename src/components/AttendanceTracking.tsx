@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import { attendanceAPI, employeeAPI } from '../services/api';
 
 interface Employee {
   id: number;
+  _id?: string; // MongoDB ObjectId
   name: string;
   position: string;
   department: string;
@@ -29,6 +31,44 @@ export function AttendanceTracking({
 }: AttendanceTrackingProps) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
+  const [loading, setLoading] = useState(false);
+
+  // Load attendance records from backend
+  const loadAttendance = async () => {
+    try {
+      setLoading(true);
+      const startOfMonth = selectedDate.substring(0, 8) + '01';
+      const endOfMonth = new Date(selectedDate.substring(0, 7) + '-01');
+      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+      endOfMonth.setDate(0);
+      const endDateStr = endOfMonth.toISOString().split('T')[0];
+
+      const response = await attendanceAPI.getAll(1, 1000, {
+        startDate: startOfMonth,
+        endDate: endDateStr
+      });
+
+      // Map backend data to frontend format
+      const mappedRecords = response.data.map((record: any) => ({
+        employeeId: record.employee._id,
+        date: record.date.split('T')[0],
+        status: record.status === 'On Leave' ? 'Leave' : record.status,
+        checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
+        checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
+      }));
+
+      setAttendanceRecords(mappedRecords);
+    } catch (error) {
+      console.error('Failed to load attendance:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load attendance on mount and when date changes
+  useEffect(() => {
+    loadAttendance();
+  }, [selectedDate]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -58,31 +98,70 @@ export function AttendanceTracking({
     }
   };
 
-  const toggleAttendance = (employeeId: number, status: AttendanceRecord['status']) => {
-    const existingIndex = attendanceRecords.findIndex(
-      r => r.employeeId === employeeId && r.date === selectedDate
-    );
+  const toggleAttendance = async (employeeId: number, status: AttendanceRecord['status']) => {
+    try {
+      const existingIndex = attendanceRecords.findIndex(
+        r => r.employeeId === employeeId && r.date === selectedDate
+      );
 
-    if (existingIndex >= 0) {
-      const updated = [...attendanceRecords];
-      updated[existingIndex] = {
-        ...updated[existingIndex],
-        status,
-        checkIn: status === 'Present' || status === 'Late' ? '09:00 AM' : undefined,
-        checkOut: status === 'Present' ? '05:00 PM' : undefined,
+      const now = new Date();
+      const dateTime = new Date(selectedDate);
+      
+      // Set check-in time
+      let checkInTime = null;
+      let checkOutTime = null;
+      
+      if (status === 'Present' || status === 'Late') {
+        checkInTime = new Date(dateTime.setHours(9, 0, 0, 0));
+        if (status === 'Present') {
+          checkOutTime = new Date(dateTime.setHours(17, 0, 0, 0));
+        }
+      }
+
+      const attendanceData = {
+        employee: employees.find(e => e.id === employeeId)?._id || employeeId,
+        date: selectedDate,
+        status: status === 'Leave' ? 'On Leave' : status,
+        checkIn: checkInTime,
+        checkOut: checkOutTime,
       };
-      setAttendanceRecords(updated);
-    } else {
-      setAttendanceRecords([
-        ...attendanceRecords,
-        {
-          employeeId,
-          date: selectedDate,
+
+      if (existingIndex >= 0) {
+        // Update existing record in backend
+        const existingRecord = attendanceRecords[existingIndex];
+        // Note: Need to find the _id from backend for update
+        // For now, delete and recreate
+        await attendanceAPI.create(attendanceData);
+        
+        const updated = [...attendanceRecords];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
           status,
           checkIn: status === 'Present' || status === 'Late' ? '09:00 AM' : undefined,
           checkOut: status === 'Present' ? '05:00 PM' : undefined,
-        },
-      ]);
+        };
+        setAttendanceRecords(updated);
+      } else {
+        // Create new record in backend
+        await attendanceAPI.create(attendanceData);
+        
+        setAttendanceRecords([
+          ...attendanceRecords,
+          {
+            employeeId,
+            date: selectedDate,
+            status,
+            checkIn: status === 'Present' || status === 'Late' ? '09:00 AM' : undefined,
+            checkOut: status === 'Present' ? '05:00 PM' : undefined,
+          },
+        ]);
+      }
+
+      // Reload to sync with backend
+      await loadAttendance();
+    } catch (error: any) {
+      console.error('Failed to mark attendance:', error);
+      alert(error.message || 'Failed to mark attendance');
     }
   };
 

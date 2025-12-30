@@ -5,6 +5,7 @@ const {
   getAttendanceById,
   checkIn,
   checkOut,
+  createAttendance,
   getEmployeeAttendance,
   updateAttendance,
   deleteAttendance,
@@ -15,13 +16,14 @@ const { protect, authorize } = require('../middleware/auth');
 router.use(protect); // All routes require authentication
 
 router.get('/', getAttendance);
-router.get('/summary/stats', getAttendanceSummary);
-router.get('/employee/:employeeId', getEmployeeAttendance);
-router.get('/:id', getAttendanceById);
+router.post('/', createAttendance); // Create attendance record
+router.get('/summary/stats', getAttendanceSummary); // Must be BEFORE /:id
+router.get('/employee/:employeeId', getEmployeeAttendance); // Must be BEFORE /:id
 router.post('/check-in', checkIn);
 router.post('/check-out', checkOut);
 
-// Admin and HR only
+// Generic routes
+router.get('/:id', getAttendanceById);
 router.put('/:id', authorize('admin', 'hr'), updateAttendance);
 router.delete('/:id', authorize('admin', 'hr'), deleteAttendance);
 

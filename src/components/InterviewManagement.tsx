@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Calendar, Clock, User, Mail, Phone, Briefcase, MapPin, Edit2, Trash2 } from 'lucide-react';
+import { interviewAPI } from '../services/api';
 
 interface Interview {
-  id: number;
+  _id?: string;
+  id?: string | number;
   candidateName: string;
   email: string;
   phone: string;
@@ -10,9 +12,9 @@ interface Interview {
   department: string;
   date: string;
   time: string;
-  interviewer: string;
+  interviewer?: string;
   location: string;
-  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'Rescheduled';
+  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'Rescheduled' | 'In Progress';
   notes?: string;
   resume?: string;
 }
@@ -40,28 +42,74 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
     notes: '',
   });
 
+  // Load interviews from the API so new entries persist to the database
+  useEffect(() => {
+    loadInterviews();
+  }, []);
+
+  const loadInterviews = async () => {
+    try {
+      const response = await interviewAPI.getAll(1, 1000);
+      const rawData = Array.isArray(response?.data) ? response.data : [];
+
+      const formatted = rawData.map((item: any) => ({
+        _id: item._id,
+        id: item._id,
+        candidateName: item.candidateName,
+        email: item.candidateEmail,
+        phone: item.candidatePhone,
+        position: item.position,
+        department: item.department,
+        date: item.interviewDate ? new Date(item.interviewDate).toISOString().slice(0, 10) : '',
+        time: item.interviewTime,
+        interviewer: item.interviewerName,
+        location: item.location || '',
+        status: item.status,
+        notes: item.notes,
+        resume: item.resume,
+      }));
+
+      setInterviews(formatted);
+    } catch (err) {
+      console.error('Failed to load interviews', err);
+    }
+  };
+
   const filteredInterviews = interviews.filter(
     interview => filterStatus === 'all' || interview.status === filterStatus
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (editingInterview) {
-      setInterviews(interviews.map(interview =>
-        interview.id === editingInterview.id
-          ? { ...interview, ...formData }
-          : interview
-      ));
-    } else {
-      const newInterview: Interview = {
-        id: Math.max(0, ...interviews.map(i => i.id)) + 1,
-        ...formData,
-      };
-      setInterviews([...interviews, newInterview]);
-    }
+    const payload = {
+      candidateName: formData.candidateName,
+      candidateEmail: formData.email,
+      candidatePhone: formData.phone,
+      position: formData.position,
+      department: formData.department,
+      interviewDate: formData.date,
+      interviewTime: formData.time,
+      location: formData.location,
+      status: formData.status,
+      notes: formData.notes,
+      interviewerName: formData.interviewer,
+      interviewType: 'In-Person',
+    };
 
-    resetForm();
+    try {
+      if (editingInterview && (editingInterview._id || editingInterview.id)) {
+        const id = String(editingInterview._id || editingInterview.id);
+        await interviewAPI.update(id, payload);
+      } else {
+        await interviewAPI.create(payload);
+      }
+
+      await loadInterviews();
+      resetForm();
+    } catch (err) {
+      console.error('Failed to save interview', err);
+    }
   };
 
   const resetForm = () => {
@@ -92,7 +140,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
       department: interview.department,
       date: interview.date,
       time: interview.time,
-      interviewer: interview.interviewer,
+      interviewer: interview.interviewer || '',
       location: interview.location,
       status: interview.status,
       notes: interview.notes || '',
@@ -100,9 +148,15 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this interview?')) {
-      setInterviews(interviews.filter(interview => interview.id !== id));
+  const handleDelete = async (id?: string | number) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to delete this interview?')) return;
+
+    try {
+      await interviewAPI.delete(String(id));
+      await loadInterviews();
+    } catch (err) {
+      console.error('Failed to delete interview', err);
     }
   };
 
@@ -216,7 +270,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
       {/* Interview Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {filteredInterviews.map((interview) => (
-          <div key={interview.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div key={interview._id || interview.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -251,7 +305,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <User className="w-4 h-4" />
-                  <span>Interviewer: {interview.interviewer}</span>
+                  <span>Interviewer: {interview.interviewer || 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <MapPin className="w-4 h-4" />
@@ -275,7 +329,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(interview.id)}
+                  onClick={() => handleDelete(interview._id || interview.id)}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />

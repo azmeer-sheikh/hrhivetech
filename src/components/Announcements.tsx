@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Plus, Pin, Calendar, User, Trash2, Edit } from 'lucide-react';
+import { announcementAPI } from '../services/api';
 
 export interface Announcement {
-  id: number;
+  _id?: string;
+  id?: string | number;
   title: string;
   content: string;
   category: 'General' | 'Holiday' | 'Policy' | 'Event' | 'Important';
@@ -10,6 +12,36 @@ export interface Announcement {
   createdBy: string;
   createdAt: string;
 }
+
+const mapTypeToCategory = (type?: string): Announcement['category'] => {
+  switch (type) {
+    case 'Policy Update':
+      return 'Policy';
+    case 'Event':
+      return 'Event';
+    case 'Holiday':
+      return 'Holiday';
+    case 'Important':
+      return 'Important';
+    default:
+      return 'General';
+  }
+};
+
+const mapCategoryToType = (category: Announcement['category']): string => {
+  switch (category) {
+    case 'Policy':
+      return 'Policy Update';
+    case 'Event':
+      return 'Event';
+    case 'Holiday':
+      return 'Holiday';
+    case 'Important':
+      return 'Important';
+    default:
+      return 'General';
+  }
+};
 
 interface AnnouncementsProps {
   announcements: Announcement[];
@@ -23,38 +55,88 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
   const [category, setCategory] = useState<Announcement['category']>('General');
   const [isPinned, setIsPinned] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadAnnouncements();
+  }, []);
+
+  const loadAnnouncements = async () => {
+    try {
+      const response = await announcementAPI.getAll(1, 1000);
+      const raw = Array.isArray(response?.data) ? response.data : [];
+
+      const formatted = raw.map((item: any) => ({
+        _id: item._id,
+        id: item._id,
+        title: item.title,
+        content: item.content,
+        category: mapTypeToCategory(item.type),
+        isPinned: Boolean(item.isPinned),
+        createdBy: item.createdBy?.username || item.createdBy?.email || 'System',
+        createdAt: item.publishDate || item.createdAt || new Date().toISOString(),
+      }));
+
+      setAnnouncements(formatted);
+    } catch (err) {
+      console.error('Failed to load announcements', err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newAnnouncement: Announcement = {
-      id: announcements.length + 1,
+    await saveAnnouncement();
+  };
+
+  const saveAnnouncement = async () => {
+    const payload = {
       title,
       content,
-      category,
+      type: mapCategoryToType(category),
       isPinned,
-      createdBy: 'Admin User',
-      createdAt: new Date().toISOString(),
+      priority: 'Medium',
+      targetAudience: 'All Employees',
     };
 
-    setAnnouncements([newAnnouncement, ...announcements]);
-    
-    // Reset form
-    setShowAddModal(false);
-    setTitle('');
-    setContent('');
-    setCategory('General');
-    setIsPinned(false);
+    try {
+      await announcementAPI.create(payload);
+      await loadAnnouncements();
+      // Reset form
+      setShowAddModal(false);
+      setTitle('');
+      setContent('');
+      setCategory('General');
+      setIsPinned(false);
+    } catch (err) {
+      console.error('Failed to create announcement', err);
+    }
   };
 
-  const togglePin = (id: number) => {
-    setAnnouncements(announcements.map(a => 
-      a.id === id ? { ...a, isPinned: !a.isPinned } : a
-    ));
+  const togglePin = (announcementId?: string | number, currentPinned?: boolean) => {
+    handlePin(announcementId, !currentPinned);
   };
 
-  const deleteAnnouncement = (id: number) => {
+  const deleteAnnouncement = (announcementId?: string | number) => {
     if (confirm('Are you sure you want to delete this announcement?')) {
-      setAnnouncements(announcements.filter(a => a.id !== id));
+      handleDelete(announcementId);
+    }
+  };
+
+  const handlePin = async (id?: number | string, isPinnedValue?: boolean) => {
+    if (!id) return;
+    try {
+      await announcementAPI.update(String(id), { isPinned: isPinnedValue });
+      await loadAnnouncements();
+    } catch (err) {
+      console.error('Failed to pin announcement', err);
+    }
+  };
+
+  const handleDelete = async (id?: number | string) => {
+    if (!id) return;
+    try {
+      await announcementAPI.delete(String(id));
+      await loadAnnouncements();
+    } catch (err) {
+      console.error('Failed to delete announcement', err);
     }
   };
 
@@ -102,7 +184,7 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
       <div className="space-y-4">
         {sortedAnnouncements.map((announcement) => (
           <div 
-            key={announcement.id} 
+            key={announcement._id || announcement.id} 
             className={`bg-white rounded-xl border shadow-sm p-6 transition-all hover:shadow-md ${
               announcement.isPinned ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'
             }`}
@@ -134,7 +216,7 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => togglePin(announcement.id)}
+                  onClick={() => togglePin(announcement._id || announcement.id, announcement.isPinned)}
                   className={`p-2 rounded-lg transition-colors ${
                     announcement.isPinned 
                       ? 'text-yellow-600 bg-yellow-100 hover:bg-yellow-200' 
@@ -145,7 +227,7 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
                   <Pin className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => deleteAnnouncement(announcement.id)}
+                  onClick={() => deleteAnnouncement(announcement._id || announcement.id)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete"
                 >

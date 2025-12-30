@@ -1,18 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin, Upload, X } from 'lucide-react';
 import { Pagination } from './Pagination';
+import { employeeAPI } from '../services/api';
 
 interface Employee {
-  id: number;
-  name: string;
+  _id?: string;
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
   email: string;
   phone: string;
   position: string;
   department: string;
   salary: number;
-  joinDate: string;
+  joinDate?: string;
+  joiningDate?: string;
   status: 'Active' | 'On Leave' | 'Inactive';
   imageUrl?: string;
+  [key: string]: any;
 }
 
 interface EmployeeManagementProps {
@@ -26,18 +32,56 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 9; // 3x3 grid
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     position: '',
     department: '',
     salary: '',
-    joinDate: '',
+    joiningDate: '',
     status: 'Active' as const,
     imageUrl: '' as string | undefined,
   });
+
+  // Load employees from API on mount
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      setLoading(true);
+      // Request a high limit so the UI can load the full employee list (e.g., all 57 records)
+      const response = await employeeAPI.getAll(1, 1000);
+      const data = response?.data || [];
+      const formattedEmployees = data.map((emp: any) => ({
+        _id: emp._id,
+        id: emp._id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        name: `${emp.firstName} ${emp.lastName}`,
+        email: emp.email,
+        phone: emp.phone,
+        position: emp.position,
+        department: emp.department,
+        salary: emp.salary,
+        joiningDate: emp.joiningDate,
+        status: emp.status,
+        imageUrl: emp.imageUrl,
+        ...emp
+      }));
+      setEmployees(formattedEmployees);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load employees');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredEmployees = employees.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,50 +90,68 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     emp.department.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingEmployee) {
-      setEmployees(employees.map(emp =>
-        emp.id === editingEmployee.id
-          ? { ...emp, ...formData, salary: parseFloat(formData.salary) }
-          : emp
-      ));
-    } else {
-      const newEmployee: Employee = {
-        id: Math.max(0, ...employees.map(e => e.id)) + 1,
-        ...formData,
-        salary: parseFloat(formData.salary),
-      };
-      setEmployees([...employees, newEmployee]);
-    }
+    try {
+      setLoading(true);
+      setError(null);
 
-    setShowModal(false);
-    setEditingEmployee(null);
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      position: '',
-      department: '',
-      salary: '',
-      joinDate: '',
-      status: 'Active',
-      imageUrl: '',
-    });
-    setImagePreview(null);
+      const submitData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        position: formData.position,
+        department: formData.department,
+        salary: parseFloat(formData.salary),
+        joiningDate: formData.joiningDate,
+        status: formData.status,
+      };
+
+      if (editingEmployee && (editingEmployee._id || editingEmployee.id)) {
+        const empId = editingEmployee._id || editingEmployee.id;
+        await employeeAPI.update(String(empId), submitData);
+      } else {
+        await employeeAPI.create(submitData);
+      }
+
+      // Reload employees from API
+      await loadEmployees();
+
+      setShowModal(false);
+      setEditingEmployee(null);
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        position: '',
+        department: '',
+        salary: '',
+        joiningDate: '',
+        status: 'Active',
+        imageUrl: '',
+      });
+      setImagePreview(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save employee');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEdit = (employee: Employee) => {
     setEditingEmployee(employee);
     setFormData({
-      name: employee.name,
+      firstName: employee.firstName || employee.name?.split(' ')[0] || '',
+      lastName: employee.lastName || employee.name?.split(' ').slice(1).join(' ') || '',
       email: employee.email,
       phone: employee.phone,
       position: employee.position,
       department: employee.department,
       salary: employee.salary.toString(),
-      joinDate: employee.joinDate,
+      joiningDate: employee.joiningDate || '',
       status: employee.status,
       imageUrl: employee.imageUrl,
     });
@@ -97,9 +159,17 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this employee?')) {
-      setEmployees(employees.filter(emp => emp.id !== id));
+  const handleDelete = async (id: string | number | undefined) => {
+    if (!id || !window.confirm('Are you sure you want to delete this employee?')) return;
+
+    try {
+      setLoading(true);
+      await employeeAPI.delete(String(id));
+      await loadEmployees();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete employee');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -128,13 +198,14 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
           onClick={() => {
             setEditingEmployee(null);
             setFormData({
-              name: '',
+              firstName: '',
+              lastName: '',
               email: '',
               phone: '',
               position: '',
               department: '',
               salary: '',
-              joinDate: '',
+              joiningDate: '',
               status: 'Active',
               imageUrl: '',
             });
@@ -147,6 +218,23 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
           Add Employee
         </button>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex justify-between items-center">
+          <p className="text-red-800">{error}</p>
+          <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-blue-800">Processing...</p>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
@@ -165,7 +253,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       {/* Employee Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((employee) => (
-          <div key={employee.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div key={employee._id || employee.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -178,11 +266,11 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold">
-                      {employee.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      {((employee.firstName || '')[0] || '') + ((employee.lastName || '')[0] || '')}
                     </div>
                   )}
                   <div>
-                    <h4 className="text-gray-900">{employee.name}</h4>
+                    <h4 className="text-gray-900">{employee.name || `${employee.firstName} ${employee.lastName}`}</h4>
                     <p className="text-gray-500">{employee.position}</p>
                   </div>
                 </div>
@@ -219,7 +307,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(employee.id)}
+                    onClick={() => handleDelete(employee._id || employee.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -268,18 +356,34 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Full Name */}
+                {/* First Name */}
                 <div className="space-y-2">
                   <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Full Name
+                    First Name
                     <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter full name"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    placeholder="Enter first name"
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                  />
+                </div>
+
+                {/* Last Name */}
+                <div className="space-y-2">
+                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
+                    Last Name
+                    <span className="!text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    placeholder="Enter last name"
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
                   />
                 </div>
@@ -381,8 +485,8 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                   <input
                     type="date"
                     required
-                    value={formData.joinDate}
-                    onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                    value={formData.joiningDate}
+                    onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
                   />
                 </div>

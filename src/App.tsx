@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -18,9 +18,12 @@ import { Settings } from './components/Settings';
 import { UserManagement } from './components/UserManagement';
 import { EmployeePasswordGate } from './components/EmployeePasswordGate';
 import { Toaster } from './components/ui/sonner';
+import { employeeAPI } from './services/api';
+
 // Types
 interface Employee {
   id: number;
+  _id?: string; // MongoDB ObjectId
   name: string;
   email: string;
   phone: string;
@@ -199,6 +202,39 @@ function MainApp() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>(mockHolidays);
+
+  // Load employees from backend on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadEmployeesFromBackend();
+    }
+  }, [isAuthenticated]);
+
+  const loadEmployeesFromBackend = async () => {
+    try {
+      const response = await employeeAPI.getAll(1, 1000);
+      const data = response?.data || [];
+      const formattedEmployees = data.map((emp: any) => ({
+        _id: emp._id,
+        id: emp._id, // Use MongoDB _id as primary id
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        name: `${emp.firstName} ${emp.lastName}`,
+        email: emp.email,
+        phone: emp.phone,
+        position: emp.position,
+        department: emp.department,
+        salary: emp.salary,
+        joinDate: emp.joiningDate,
+        status: emp.status,
+        imageUrl: emp.imageUrl,
+      }));
+      setEmployees(formattedEmployees);
+    } catch (error) {
+      console.error('Failed to load employees:', error);
+      // Keep mock employees as fallback
+    }
+  };
 
   // Show login if not authenticated
   if (!isAuthenticated) {

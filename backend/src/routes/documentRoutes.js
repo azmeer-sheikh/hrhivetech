@@ -14,10 +14,12 @@ const { protect, authorize } = require('../middleware/auth');
 router.use(protect); // All routes require authentication
 
 router.get('/', getDocuments);
-router.get('/stats/overview', authorize('admin', 'hr'), getDocumentStats);
-router.get('/:id', getDocument);
-router.get('/:id/download', downloadDocument);
+router.get('/stats/overview', authorize('admin', 'hr'), getDocumentStats); // Must be BEFORE /:id
 router.post('/', uploadDocument);
+
+// These must come before generic /:id to avoid route conflicts
+router.get('/:id/download', downloadDocument);
+router.get('/:id', getDocument);
 router.put('/:id', updateDocument);
 router.delete('/:id', deleteDocument);
 

@@ -14,13 +14,13 @@ const { protect, authorize } = require('../middleware/auth');
 router.use(protect); // All routes require authentication
 
 router.get('/', getPayrolls);
-router.get('/summary/stats', authorize('admin', 'hr'), getPayrollSummary);
-router.get('/:id', getPayroll);
-
-// Admin and HR only
+router.get('/summary/stats', authorize('admin', 'hr'), getPayrollSummary); // Must be BEFORE /:id
 router.post('/', authorize('admin', 'hr'), createPayroll);
+
+// These must come before generic /:id to avoid route conflicts
+router.patch('/:id/process', authorize('admin', 'hr'), processPayroll);
+router.get('/:id', getPayroll);
 router.put('/:id', authorize('admin', 'hr'), updatePayroll);
 router.delete('/:id', authorize('admin', 'hr'), deletePayroll);
-router.patch('/:id/process', authorize('admin', 'hr'), processPayroll);
 
 module.exports = router;

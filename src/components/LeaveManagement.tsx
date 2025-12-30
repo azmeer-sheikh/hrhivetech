@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Palmtree, Plus, Calendar, Clock, CheckCircle, XCircle, Search, Filter } from 'lucide-react';
+import { leaveAPI } from '../services/api';
 
 interface Employee {
-  id: number;
+  _id?: string;
+  id?: number | string;
   name: string;
   position: string;
   department: string;
 }
 
 export interface LeaveRequest {
-  id: number;
-  employeeId: number;
+  _id?: string;
+  id?: number | string;
+  employeeId: string | number;
   employeeName: string;
   leaveType: 'Annual' | 'Sick' | 'Casual' | 'Emergency' | 'Unpaid';
   startDate: string;
@@ -23,7 +26,7 @@ export interface LeaveRequest {
 }
 
 interface LeaveBalance {
-  employeeId: number;
+  employeeId: number | string;
   annual: number;
   sick: number;
   casual: number;
@@ -47,11 +50,99 @@ export function LeaveManagement({
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [selectedEmployee, setSelectedEmployee] = useState<number>(0);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [leaveType, setLeaveType] = useState<LeaveRequest['leaveType']>('Annual');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    loadLeaves();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEmployee) return;
+    fetchBalance(selectedEmployee);
+  }, [selectedEmployee]);
+
+  const mapBackendTypeToUI = (type: string): LeaveRequest['leaveType'] => {
+    switch (type) {
+      case 'Annual Leave':
+        return 'Annual';
+      case 'Sick Leave':
+        return 'Sick';
+      case 'Casual Leave':
+        return 'Casual';
+      case 'Unpaid Leave':
+        return 'Unpaid';
+      default:
+        return 'Emergency';
+    }
+  };
+
+  const mapUITypeToBackend = (type: LeaveRequest['leaveType']) => {
+    switch (type) {
+      case 'Annual':
+        return 'Annual Leave';
+      case 'Sick':
+        return 'Sick Leave';
+      case 'Casual':
+        return 'Casual Leave';
+      case 'Unpaid':
+        return 'Unpaid Leave';
+      default:
+        return 'Casual Leave';
+    }
+  };
+
+  const loadLeaves = async () => {
+    try {
+      const response = await leaveAPI.getAll(1, 500);
+      const raw = Array.isArray(response?.data) ? response.data : [];
+
+      const formatted: LeaveRequest[] = raw.map((item: any) => {
+        const employeeName = item.employee?.firstName
+          ? `${item.employee.firstName} ${item.employee.lastName || ''}`.trim()
+          : item.employeeName || 'Employee';
+
+        return {
+          _id: item._id,
+          id: item._id,
+          employeeId: item.employee?._id || item.employee,
+          employeeName,
+          leaveType: mapBackendTypeToUI(item.leaveType),
+          startDate: item.startDate,
+          endDate: item.endDate,
+          days: item.numberOfDays,
+          reason: item.reason,
+          status: item.status,
+          appliedOn: item.createdAt || item.startDate,
+          approvedBy: item.approvedBy?.username || item.approvedBy?.email,
+        };
+      });
+
+      setLeaveRequests(formatted);
+    } catch (err) {
+      console.error('Failed to load leaves', err);
+    }
+  };
+
+  const fetchBalance = async (employeeId: string | number) => {
+    try {
+      const response = await leaveAPI.getBalance(String(employeeId));
+      const data = response?.data || {};
+
+      const annual = data['Annual Leave']?.remaining ?? 20;
+      const sick = data['Sick Leave']?.remaining ?? 10;
+      const casual = data['Casual Leave']?.remaining ?? 5;
+
+      const updated = leaveBalances.filter(b => String(b.employeeId) !== String(employeeId));
+      updated.push({ employeeId, annual, sick, casual });
+      setLeaveBalances(updated);
+    } catch (err) {
+      console.error('Failed to fetch leave balance', err);
+    }
+  };
 
   const calculateDays = (start: string, end: string) => {
     if (!start || !end) return 0;
@@ -62,75 +153,60 @@ export function LeaveManagement({
     return diffDays;
   };
 
-  const handleSubmitLeave = (e: React.FormEvent) => {
+  const handleSubmitLeave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const employee = employees.find(emp => emp.id === selectedEmployee);
-    if (!employee) return;
+    if (!selectedEmployee) return;
 
+    const employee = employees.find(emp => String(emp._id || emp.id) === String(selectedEmployee));
     const days = calculateDays(startDate, endDate);
-    
-    const newLeave: LeaveRequest = {
-      id: leaveRequests.length + 1,
-      employeeId: selectedEmployee,
-      employeeName: employee.name,
-      leaveType,
+
+    const payload = {
+      employee: selectedEmployee,
+      leaveType: mapUITypeToBackend(leaveType),
       startDate,
       endDate,
-      days,
+      numberOfDays: days,
       reason,
       status: 'Pending',
-      appliedOn: new Date().toISOString().split('T')[0],
     };
 
-    setLeaveRequests([...leaveRequests, newLeave]);
-    
-    // Reset form
-    setShowAddModal(false);
-    setSelectedEmployee(0);
-    setLeaveType('Annual');
-    setStartDate('');
-    setEndDate('');
-    setReason('');
-  };
-
-  const handleApprove = (leaveId: number) => {
-    const leave = leaveRequests.find(l => l.id === leaveId);
-    if (!leave) return;
-
-    const updated = leaveRequests.map(l => 
-      l.id === leaveId 
-        ? { ...l, status: 'Approved' as const, approvedBy: 'Admin User' }
-        : l
-    );
-    setLeaveRequests(updated);
-
-    // Deduct from balance
-    const balance = leaveBalances.find(b => b.employeeId === leave.employeeId);
-    if (balance) {
-      const updatedBalances = leaveBalances.map(b => {
-        if (b.employeeId === leave.employeeId) {
-          if (leave.leaveType === 'Annual') return { ...b, annual: b.annual - leave.days };
-          if (leave.leaveType === 'Sick') return { ...b, sick: b.sick - leave.days };
-          if (leave.leaveType === 'Casual') return { ...b, casual: b.casual - leave.days };
-        }
-        return b;
-      });
-      setLeaveBalances(updatedBalances);
+    try {
+      await leaveAPI.create(payload);
+      await loadLeaves();
+      // Reset form
+      setShowAddModal(false);
+      setSelectedEmployee('');
+      setLeaveType('Annual');
+      setStartDate('');
+      setEndDate('');
+      setReason('');
+    } catch (err) {
+      console.error('Failed to create leave', err);
     }
   };
 
-  const handleReject = (leaveId: number) => {
-    const updated = leaveRequests.map(l => 
-      l.id === leaveId 
-        ? { ...l, status: 'Rejected' as const, approvedBy: 'Admin User' }
-        : l
-    );
-    setLeaveRequests(updated);
+  const handleApprove = async (leaveId: string | number | undefined) => {
+    if (!leaveId) return;
+    try {
+      await leaveAPI.approve(String(leaveId), 'Approved');
+      await loadLeaves();
+    } catch (err) {
+      console.error('Failed to approve leave', err);
+    }
   };
 
-  const getEmployeeBalance = (employeeId: number) => {
-    return leaveBalances.find(b => b.employeeId === employeeId) || { employeeId, annual: 20, sick: 10, casual: 5 };
+  const handleReject = async (leaveId: string | number | undefined) => {
+    if (!leaveId) return;
+    try {
+      await leaveAPI.reject(String(leaveId), 'Rejected by admin');
+      await loadLeaves();
+    } catch (err) {
+      console.error('Failed to reject leave', err);
+    }
+  };
+
+  const getEmployeeBalance = (employeeId: string | number) => {
+    return leaveBalances.find(b => String(b.employeeId) === String(employeeId)) || { employeeId, annual: 20, sick: 10, casual: 5 };
   };
 
   const filteredRequests = leaveRequests.filter(req => {
@@ -233,7 +309,7 @@ export function LeaveManagement({
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredRequests.map((leave) => (
-                <tr key={leave.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={leave._id || leave.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div>
                       <p className="font-medium text-gray-900">{leave.employeeName}</p>
@@ -276,14 +352,14 @@ export function LeaveManagement({
                     {leave.status === 'Pending' && (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleApprove(leave.id)}
+                          onClick={() => handleApprove(leave._id || leave.id)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Approve"
                         >
                           <CheckCircle className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => handleReject(leave.id)}
+                          onClick={() => handleReject(leave._id || leave.id)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Reject"
                         >
@@ -337,13 +413,13 @@ export function LeaveManagement({
                   </label>
                   <select
                     value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(Number(e.target.value))}
+                    onChange={(e) => setSelectedEmployee(e.target.value)}
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
                     required
                   >
-                    <option value={0}>Choose an employee</option>
+                    <option value="">Choose an employee</option>
                     {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
+                      <option key={emp._id || emp.id} value={emp._id || emp.id}>
                         {emp.name} - {emp.position}
                       </option>
                     ))}
@@ -351,7 +427,7 @@ export function LeaveManagement({
                 </div>
 
                 {/* Leave Balance Display */}
-                {selectedEmployee > 0 && (
+                {selectedEmployee && (
                   <div className="bg-gradient-to-br from-emerald-50 to-blue-50 border-2 border-emerald-200 rounded-xl p-6">
                     <h4 className="!text-gray-900 !mb-4 flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">

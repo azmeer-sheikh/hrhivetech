@@ -41,6 +41,10 @@ const interviewSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  interviewerName: {
+    type: String,
+    trim: true
+  },
   location: String,
   meetingLink: String,
   status: {

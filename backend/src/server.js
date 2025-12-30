@@ -42,17 +42,36 @@ app.use('/api/', limiter);
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'http://localhost:3000',
-  'http://localhost:3001'
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. mobile apps, curl)
+    // Allow requests with no origin (e.g. mobile apps, curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+    
+    // Check if origin is in allowed list (case-insensitive for safety)
+    const isAllowed = allowedOrigins.some(allowed => 
+      allowed.toLowerCase() === origin.toLowerCase()
+    );
+    
+    if (isAllowed) return callback(null, true);
+    
+    // Log denied origins in development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`CORS blocked origin: ${origin}`);
+    }
+    
+    return callback(new Error(`Origin ${origin} not allowed by CORS policy`));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count']
 }));
 
 // Body parser middleware
@@ -70,6 +89,31 @@ if (process.env.NODE_ENV === 'development') {
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });
+});
+
+// API info route
+app.get('/api', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'HR Portal API',
+    version: '1.0.0',
+    baseUrl: 'http://localhost:5000/api',
+    endpoints: {
+      auth: '/api/auth',
+      employees: '/api/employees',
+      attendance: '/api/attendance',
+      leaves: '/api/leaves',
+      payroll: '/api/payroll',
+      performance: '/api/performance',
+      interviews: '/api/interviews',
+      documents: '/api/documents',
+      holidays: '/api/holidays',
+      announcements: '/api/announcements',
+      analytics: '/api/analytics',
+      users: '/api/users'
+    },
+    documentation: 'See API_DOCS.md for complete documentation'
+  });
 });
 
 // API routes

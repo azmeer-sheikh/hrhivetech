@@ -13,7 +13,7 @@ const { protect, authorize } = require('../middleware/auth');
 router.use(protect); // All routes require authentication
 
 router.get('/', getEmployees);
-router.get('/stats/overview', getEmployeeStats);
+router.get('/stats/overview', getEmployeeStats); // Must be BEFORE /:id
 router.get('/:id', getEmployee);
 
 // Admin and HR only
