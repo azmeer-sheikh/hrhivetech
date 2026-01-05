@@ -351,28 +351,24 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down">
+          <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl" style={{ borderRadius: '5px' }}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-8 py-6 border-b border-purple-700">
-              <h2 className="!text-white !mb-1 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 !text-white" />
-                </div>
+            <div className="px-6 py-4" style={{ background: 'linear-gradient(to right, #9333ea, #7e22ce)' }}>
+              <h2 className="text-base font-bold" style={{ color: '#ffffff', margin: 0 }}>
                 {editingInterview ? 'Edit Interview' : 'Schedule New Interview'}
               </h2>
-              <p className="!text-purple-100 text-sm !mb-0">
+              <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.9)', margin: '4px 0 0 0' }}>
                 {editingInterview ? 'Update interview details' : 'Schedule a new interview with candidate'}
               </p>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Candidate Name */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Candidate Name
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Candidate Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -380,15 +376,15 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     value={formData.candidateName}
                     onChange={(e) => setFormData({ ...formData, candidateName: e.target.value })}
                     placeholder="Enter candidate's full name"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Email */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Email Address
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -396,15 +392,15 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="candidate@email.com"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Phone */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Phone Number
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Phone Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -412,15 +408,15 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+92 XXX XXXXXXX"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Position */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Position Applied
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Position Applied <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -428,21 +424,22 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     value={formData.position}
                     onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                     placeholder="e.g. Frontend Developer"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Department */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Department
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Department <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white"
+                    style={{ borderRadius: '5px' }}
                   >
                     <option value="">Select Department</option>
                     <option value="Sales Operations (Phase-4)">Sales Operations (Phase-4)</option>
@@ -453,39 +450,38 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
 
                 {/* Date */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Interview Date
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Interview Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Time */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Interview Time
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Interview Time <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="time"
                     required
                     value={formData.time}
                     onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Interviewer */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Interviewer
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Interviewer <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -493,15 +489,15 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     value={formData.interviewer}
                     onChange={(e) => setFormData({ ...formData, interviewer: e.target.value })}
                     placeholder="Enter interviewer name"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Location */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Location/Platform
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Location/Platform <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -509,21 +505,22 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     placeholder="e.g., Conference Room A, Zoom, etc."
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
 
                 {/* Status */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Interview Status
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Interview Status <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white"
+                    style={{ borderRadius: '5px' }}
                   >
                     <option value="Scheduled">Scheduled</option>
                     <option value="Completed">Completed</option>
@@ -534,7 +531,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
 
                 {/* Notes */}
                 <div className="md:col-span-2 space-y-2">
-                  <label className="block !text-gray-900 font-medium">
+                  <label className="block text-gray-900 font-medium text-sm">
                     Additional Notes
                   </label>
                   <textarea
@@ -542,27 +539,30 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={4}
                     placeholder="Add any additional notes about the interview..."
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300 resize-none"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+                    style={{ borderRadius: '5px' }}
                   />
                 </div>
               </div>
             </form>
 
             {/* Footer */}
-            <div className="px-8 py-5 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
               <button
                 type="button"
                 onClick={resetForm}
-                className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                style={{ borderRadius: '5px' }}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="flex-1 px-6 py-3.5 bg-purple-600 !text-white rounded-xl hover:bg-purple-700 transition-colors shadow-lg shadow-purple-600/30 font-medium"
+                className="flex-1 px-5 py-2.5 text-white hover:bg-purple-700 transition-colors shadow-lg font-bold text-sm"
+                style={{ borderRadius: '5px', backgroundColor: '#9333ea' }}
               >
-                {editingInterview ? 'Update Interview' : 'Schedule Interview'}
+                {editingInterview ? 'Update Interview' : 'Schedule'}
               </button>
             </div>
           </div>

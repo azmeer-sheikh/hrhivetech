@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Palmtree, Plus, Calendar, Clock, CheckCircle, XCircle, Search, Filter } from 'lucide-react';
+import { Palmtree, Plus, Calendar, Clock, CheckCircle, XCircle, Search, Filter, X } from 'lucide-react';
 import { leaveAPI } from '../services/api';
 
 interface Employee {
@@ -387,34 +387,41 @@ export function LeaveManagement({
 
       {/* Add Leave Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-8 py-6 border-b border-emerald-700">
-              <h2 className="!text-white !mb-1 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Palmtree className="w-5 h-5 !text-white" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down border-l-4 border-emerald-600">
+            {/* Header - No rounded corners, clean design */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 border-b-2 border-emerald-500">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-500 flex items-center justify-center">
+                    <Palmtree className="w-5 h-5 !text-white" />
+                  </div>
+                  <div>
+                    <h2 className="!text-white !mb-0 text-lg font-bold tracking-wide">Apply for Leave</h2>
+                    <p className="!text-slate-300 text-xs !mb-0 mt-0.5">Submit a new leave request for approval</p>
+                  </div>
                 </div>
-                Apply for Leave
-              </h2>
-              <p className="!text-emerald-100 text-sm !mb-0">
-                Submit a new leave request for approval
-              </p>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmitLeave} className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="space-y-6">
+            <form onSubmit={handleSubmitLeave} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] bg-slate-50">
+              <div className="space-y-5">
                 {/* Employee Selection */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Select Employee
-                    <span className="!text-red-500">*</span>
+                  <label className="block !text-slate-800 text-sm font-semibold uppercase tracking-wide">
+                    Select Employee <span className="!text-red-500">*</span>
                   </label>
                   <select
                     value={selectedEmployee}
                     onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-4 py-2.5 border-l-4 border-emerald-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition-all text-sm"
                     required
                   >
                     <option value="">Choose an employee</option>
@@ -428,29 +435,24 @@ export function LeaveManagement({
 
                 {/* Leave Balance Display */}
                 {selectedEmployee && (
-                  <div className="bg-gradient-to-br from-emerald-50 to-blue-50 border-2 border-emerald-200 rounded-xl p-6">
-                    <h4 className="!text-gray-900 !mb-4 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-                        <Calendar className="w-4 h-4 !text-white" />
-                      </div>
-                      Available Leave Balance
-                    </h4>
-                    <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white border-l-4 border-emerald-500 shadow-sm p-4">
+                    <h4 className="!text-slate-800 text-sm font-bold uppercase tracking-wide !mb-3">Available Leave Balance</h4>
+                    <div className="grid grid-cols-3 gap-3">
                       {(() => {
                         const balance = getEmployeeBalance(selectedEmployee);
                         return (
                           <>
-                            <div className="bg-white rounded-lg p-4 border border-emerald-200">
-                              <p className="text-xs !text-emerald-700 !mb-1 font-medium">Annual Leave</p>
-                              <p className="!text-2xl font-bold !text-emerald-600 !mb-0">{balance.annual} <span className="text-sm !text-gray-600">days</span></p>
+                            <div className="bg-emerald-50 p-3 border-l-2 border-emerald-500">
+                              <p className="text-xs !text-emerald-700 !mb-1 font-semibold uppercase">Annual</p>
+                              <p className="!text-xl font-bold !text-emerald-700 !mb-0">{balance.annual}<span className="text-xs ml-1">days</span></p>
                             </div>
-                            <div className="bg-white rounded-lg p-4 border border-blue-200">
-                              <p className="text-xs !text-blue-700 !mb-1 font-medium">Sick Leave</p>
-                              <p className="!text-2xl font-bold !text-blue-600 !mb-0">{balance.sick} <span className="text-sm !text-gray-600">days</span></p>
+                            <div className="bg-blue-50 p-3 border-l-2 border-blue-500">
+                              <p className="text-xs !text-blue-700 !mb-1 font-semibold uppercase">Sick</p>
+                              <p className="!text-xl font-bold !text-blue-700 !mb-0">{balance.sick}<span className="text-xs ml-1">days</span></p>
                             </div>
-                            <div className="bg-white rounded-lg p-4 border border-purple-200">
-                              <p className="text-xs !text-purple-700 !mb-1 font-medium">Casual Leave</p>
-                              <p className="!text-2xl font-bold !text-purple-600 !mb-0">{balance.casual} <span className="text-sm !text-gray-600">days</span></p>
+                            <div className="bg-purple-50 p-3 border-l-2 border-purple-500">
+                              <p className="text-xs !text-purple-700 !mb-1 font-semibold uppercase">Casual</p>
+                              <p className="!text-xl font-bold !text-purple-700 !mb-0">{balance.casual}<span className="text-xs ml-1">days</span></p>
                             </div>
                           </>
                         );
@@ -461,14 +463,13 @@ export function LeaveManagement({
 
                 {/* Leave Type */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Leave Type
-                    <span className="!text-red-500">*</span>
+                  <label className="block !text-slate-800 text-sm font-semibold uppercase tracking-wide">
+                    Leave Type <span className="!text-red-500">*</span>
                   </label>
                   <select
                     value={leaveType}
                     onChange={(e) => setLeaveType(e.target.value as LeaveRequest['leaveType'])}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-4 py-2.5 border-l-4 border-emerald-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition-all text-sm"
                     required
                   >
                     <option value="Annual">Annual Leave</option>
@@ -480,30 +481,28 @@ export function LeaveManagement({
                 </div>
 
                 {/* Date Range */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                      Start Date
-                      <span className="!text-red-500">*</span>
+                    <label className="block !text-slate-800 text-sm font-semibold uppercase tracking-wide">
+                      Start Date <span className="!text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300"
+                      className="w-full px-4 py-2.5 border-l-4 border-emerald-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition-all text-sm"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                      End Date
-                      <span className="!text-red-500">*</span>
+                    <label className="block !text-slate-800 text-sm font-semibold uppercase tracking-wide">
+                      End Date <span className="!text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300"
+                      className="w-full px-4 py-2.5 border-l-4 border-emerald-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition-all text-sm"
                       required
                     />
                   </div>
@@ -511,14 +510,14 @@ export function LeaveManagement({
 
                 {/* Total Days Calculator */}
                 {startDate && endDate && (
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center flex-shrink-0">
+                  <div className="bg-white border-l-4 border-amber-500 shadow-sm p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-500 flex items-center justify-center flex-shrink-0">
                       <Calendar className="w-6 h-6 !text-white" />
                     </div>
                     <div>
-                      <p className="text-sm !text-gray-700 !mb-1">Total Leave Duration</p>
-                      <p className="!text-3xl font-bold !text-amber-600 !mb-0">
-                        {calculateDays(startDate, endDate)} <span className="text-lg">days</span>
+                      <p className="text-xs !text-slate-600 !mb-1 font-semibold uppercase">Total Leave Duration</p>
+                      <p className="!text-2xl font-bold !text-amber-600 !mb-0">
+                        {calculateDays(startDate, endDate)} <span className="text-sm">days</span>
                       </p>
                     </div>
                   </div>
@@ -526,14 +525,13 @@ export function LeaveManagement({
 
                 {/* Reason */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Reason for Leave
-                    <span className="!text-red-500">*</span>
+                  <label className="block !text-slate-800 text-sm font-semibold uppercase tracking-wide">
+                    Reason for Leave <span className="!text-red-500">*</span>
                   </label>
                   <textarea
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300 resize-none"
+                    className="w-full px-4 py-2.5 border-l-4 border-emerald-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition-all resize-none text-sm"
                     rows={4}
                     placeholder="Please provide a detailed reason for your leave request..."
                     required
@@ -543,18 +541,18 @@ export function LeaveManagement({
             </form>
 
             {/* Footer */}
-            <div className="px-8 py-5 bg-gray-50 border-t border-gray-200 flex gap-3">
+            <div className="px-6 py-4 bg-slate-100 border-t-2 border-slate-300 flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
+                className="flex-1 px-5 py-2.5 bg-white !text-slate-700 hover:bg-slate-50 transition-colors border-l-4 border-slate-400 font-semibold text-sm uppercase tracking-wide shadow-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 onClick={handleSubmitLeave}
-                className="flex-1 px-6 py-3.5 bg-emerald-600 !text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/30 font-medium"
+                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 !text-white hover:from-emerald-700 hover:to-emerald-800 transition-all border-l-4 border-emerald-800 font-semibold text-sm uppercase tracking-wide shadow-lg"
               >
                 Submit Request
               </button>

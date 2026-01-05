@@ -135,7 +135,7 @@ export function Login() {
             </form>
 
             {/* Test Credentials Info */}
-            <div className="mt-4 pt-3 border-t border-gray-200">
+            {/* <div className="mt-4 pt-3 border-t border-gray-200">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -156,14 +156,14 @@ export function Login() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
 
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-sm !text-slate-300 !mb-0">
-            © 2025 HR Portal. All rights reserved.
+            © 2026-27 HR Portal. All rights reserved.
           </p>
         </div>
       </div>

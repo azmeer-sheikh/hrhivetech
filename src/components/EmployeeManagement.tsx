@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin, Upload, X } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { Pagination } from './Pagination';
@@ -51,6 +51,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     status: 'Active' as const,
     imageUrl: '' as string | undefined,
   });
+  const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
 
   // Load employees from API on mount
   useEffect(() => {
@@ -172,41 +173,71 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string | number | undefined) => {
+  const handleDelete = useCallback((id: string | number | undefined) => {
     if (!id) return;
 
-    toast((t) => (
-      <div className="flex flex-col gap-3">
-        <p>Are you sure you want to delete this employee? This action cannot be undone.</p>
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={() => toast.dismiss(t)}
-            className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                setLoading(true);
-                await employeeAPI.delete(String(id));
-                await loadEmployees();
-                toast.success('Employee deleted successfully');
-                toast.dismiss(t);
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : 'Failed to delete employee');
-              } finally {
-                setLoading(false);
-              }
-            }}
-            className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
-          >
-            Delete
-          </button>
+    let dismissed = false;
+
+    toast.custom(
+      (t) => (
+        <div className="bg-white shadow-2xl border border-gray-200 max-w-sm overflow-hidden" style={{ borderRadius: '5px' }}>
+          {/* Header */}
+     
+          {/* Content */}
+          <div className="p-6">
+            <p className="text-gray-800 text-base leading-relaxed mb-6 font-medium">
+              Are you sure you want to delete this employee? 
+            </p>
+            
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    toast.dismiss(t);
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 text-sm font-semibold transition-colors"
+                style={{ borderRadius: '5px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    try {
+                      setLoading(true);
+                      await employeeAPI.delete(String(id));
+                      await loadEmployees();
+                      toast.dismiss(t);
+                      toast.success('Employee deleted successfully', {
+                        position: 'top-center'
+                      });
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Failed to delete employee', {
+                        position: 'top-center'
+                      });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    ));
-  };
+      ),
+      { position: 'top-center' }
+    );
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -339,14 +370,26 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 </div>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => setViewingEmployee(employee)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="View Details"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                  <button
                     onClick={() => handleEdit(employee)}
                     className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Edit Employee"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(employee._id || employee.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete Employee"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -376,29 +419,41 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down border-l-4 border-blue-600">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 border-b border-blue-700">
-              <h2 className="!text-white !mb-1 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Plus className="w-5 h-5 !text-white" />
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 border-b-2 border-blue-500">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 flex items-center justify-center">
+                    <Plus className="w-5 h-5 !text-white" />
+                  </div>
+                  <div>
+                    <h2 className="!text-white !mb-0 text-lg font-bold tracking-wide">
+                      {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
+                    </h2>
+                    <p className="!text-slate-300 text-xs !mb-0 mt-0.5">
+                      {editingEmployee ? 'Update employee information' : 'Enter employee details to add to the system'}
+                    </p>
+                  </div>
                 </div>
-                {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
-              </h2>
-              <p className="!text-blue-100 text-sm !mb-0">
-                {editingEmployee ? 'Update employee information' : 'Enter employee details to add to the system'}
-              </p>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="p-5 overflow-y-auto max-h-[calc(90vh-160px)] bg-slate-50">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* First Name */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    First Name
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    First Name <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -406,15 +461,14 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     placeholder="Enter first name"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Last Name */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Last Name
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Last Name <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -422,31 +476,29 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     placeholder="Enter last name"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Email */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Email Address
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Email <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="email"
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="employee@hivetechsolutions.com"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    placeholder="email@company.com"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Phone */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Phone Number
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Phone <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -454,54 +506,51 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+92 XXX XXXXXXX"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Employee Code */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Employee Code
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Employee Code <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.employeeCode}
                     onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
-                    placeholder="e.g. EMP001"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    placeholder="EMP001"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Date of Birth */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Date of Birth
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Date of Birth <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="date"
                     required
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Gender */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Gender
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Gender <span className="!text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
-                    <option value="">Select Gender</option>
+                    <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -509,34 +558,32 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 </div>
 
                 {/* Position */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Position/Title
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Position <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={formData.position}
                     onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                    placeholder="e.g. Senior Developer"
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    placeholder="Senior Developer"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Department */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Department
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Department <span className="!text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
-                    <option value="">Select Department</option>
+                    <option value="">Select</option>
                     <option value="Engineering">Engineering</option>
                     <option value="HR">HR</option>
                     <option value="Sales">Sales</option>
@@ -550,52 +597,44 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 </div>
 
                 {/* Salary */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Monthly Salary (PKR)
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Salary (PKR) <span className="!text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 !text-gray-500 font-medium">
-                      PKR
-                    </span>
-                    <input
-                      type="number"
-                      required
-                      value={formData.salary}
-                      onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                      placeholder="100000"
-                      className="w-full pl-16 pr-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    required
+                    value={formData.salary}
+                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                    placeholder="100000"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
                 </div>
 
                 {/* Join Date */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Join Date
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Join Date <span className="!text-red-500">*</span>
                   </label>
                   <input
                     type="date"
                     required
                     value={formData.joiningDate}
                     onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 {/* Status */}
-                <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Employment Status
-                    <span className="!text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    Status <span className="!text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
                     <option value="Active">Active</option>
                     <option value="On Leave">On Leave</option>
@@ -604,8 +643,8 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 </div>
 
                 {/* Image Upload - Full Width */}
-                <div className="md:col-span-2 space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
+                <div className="md:col-span-3 space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
                     Profile Image
                   </label>
                   <div className="flex items-center gap-4">
@@ -615,7 +654,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                         <img
                           src={imagePreview}
                           alt="Preview"
-                          className="w-24 h-24 rounded-full object-cover border-4 border-blue-100"
+                          className="w-16 h-16 object-cover border-2 border-blue-200"
                         />
                       ) : (
                         <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-gray-200">
@@ -683,6 +722,104 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 className="flex-1 px-6 py-3.5 bg-blue-600 !text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30 font-medium"
               >
                 {editingEmployee ? 'Update Employee' : 'Add Employee'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Employee Modal */}
+      {viewingEmployee && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl border-l-4 border-blue-600" style={{ borderRadius: '5px' }}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 border-b-2 border-blue-500">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="!text-white !mb-0 text-lg font-bold tracking-wide">Employee Details</h2>
+                    <p className="!text-slate-300 text-xs !mb-0 mt-0.5">Complete employee information</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setViewingEmployee(null)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] bg-slate-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Full Name</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.firstName} {viewingEmployee.lastName}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Employee Code</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.employeeCode}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Email</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.email}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Phone</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.phone}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Position</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.position}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Department</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.department}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Salary</p>
+                  <p className="text-sm text-slate-900 font-medium">PKR {viewingEmployee.salary.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Status</p>
+                  <span className={`inline-block px-2 py-1 text-xs font-semibold ${
+                    viewingEmployee.status === 'Active' ? 'bg-green-100 text-green-800' :
+                    viewingEmployee.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`} style={{ borderRadius: '5px' }}>
+                    {viewingEmployee.status}
+                  </span>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Gender</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.gender}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Date of Birth</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.dateOfBirth ? new Date(viewingEmployee.dateOfBirth).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div className="bg-white p-4 border-l-4 border-blue-500 shadow-sm md:col-span-2">
+                  <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Joining Date</p>
+                  <p className="text-sm text-slate-900 font-medium">{viewingEmployee.joiningDate ? new Date(viewingEmployee.joiningDate).toLocaleDateString() : 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-100 border-t-2 border-slate-300 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setViewingEmployee(null)}
+                className="px-5 py-2.5 bg-white text-slate-700 hover:bg-slate-50 transition-colors border-l-4 border-slate-400 font-semibold text-sm uppercase tracking-wide shadow-sm"
+                style={{ borderRadius: '5px' }}
+              >
+                Close
               </button>
             </div>
           </div>

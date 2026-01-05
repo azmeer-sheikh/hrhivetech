@@ -4432,3 +4432,21 @@ body {
     transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
   }
 }
+
+/* Global HR Portal Styles - 5px Border Radius Standard */
+@layer base {
+  /* Override Tailwind rounded classes to use 5px consistently */
+  .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl {
+    border-radius: 5px !important;
+  }
+  
+  /* Keep rounded (default small) as 3px */
+  .rounded {
+    border-radius: 3px !important;
+  }
+  
+  /* Standard rounded-md stays at 5px */
+  .rounded-md {
+    border-radius: 5px !important;
+  }
+}
