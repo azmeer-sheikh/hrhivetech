@@ -78,10 +78,57 @@ export function UserManagement() {
   };
 
   const handleDeleteUser = (userId: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      deleteUser(userId);
-      toast.success('User deleted successfully');
-    }
+    let dismissed = false;
+
+    toast.custom(
+      (t) => (
+        <div className="bg-white shadow-2xl border border-gray-200 max-w-sm overflow-hidden" style={{ borderRadius: '5px' }}>
+          <div className="px-6 py-4" style={{ background: 'linear-gradient(to right, #ef4444, #dc2626)' }}>
+            <h3 className="text-base font-bold" style={{ color: '#ffffff', margin: 0 }}>Delete User</h3>
+          </div>
+          
+          <div className="p-6">
+            <p className="text-gray-800 text-base leading-relaxed mb-6 font-medium">
+              Are you sure you want to delete this user? This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    toast.dismiss(t);
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                style={{ borderRadius: '5px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    deleteUser(userId);
+                    toast.dismiss(t);
+                    toast.success('User deleted successfully', {
+                      position: 'top-center'
+                    });
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ),
+      { position: 'top-center' }
+    );
   };
 
   const handleChangePassword = () => {

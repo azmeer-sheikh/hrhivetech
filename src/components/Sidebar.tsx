@@ -128,9 +128,6 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
              
               {/* Company Info */}
               <div className="text-center">
-                <h3 className="text-base font-bold text-white mb-1">
-                  Hive Tech Solutions
-                </h3>
                 <p className="text-xs text-slate-400 font-medium">HR Management System</p>
               </div>
             </div>

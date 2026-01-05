@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { isPasswordGateUnlocked, setPasswordGateUnlocked } from '../utils/passwordGateStorage';
 
-interface EmployeePasswordGateProps {
+interface AttendancePasswordGateProps {
   children: React.ReactNode;
 }
 
-const EMPLOYEE_PASSWORD = 'hive@2024';
-const GATE_ID = 'employee';
+const ATTENDANCE_PASSWORD = 'hivetech2024';
+const GATE_ID = 'attendance';
 
-export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
+export function AttendancePasswordGate({ children }: AttendancePasswordGateProps) {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,7 +27,7 @@ export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password === EMPLOYEE_PASSWORD) {
+    if (password === ATTENDANCE_PASSWORD) {
       setIsUnlocked(true);
       setPasswordGateUnlocked(GATE_ID);
       setError('');
@@ -38,7 +38,7 @@ export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
   };
 
   if (isLoading) {
-    return null; // Or a loading spinner if preferred
+    return null;
   }
 
   if (isUnlocked) {
@@ -50,12 +50,12 @@ export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-6 text-center">
+          <div className="bg-gradient-to-r from-amber-600 to-amber-500 px-8 py-6 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl mb-4 border border-white/20">
               <Shield className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Protected Access</h2>
-            <p className="text-blue-100 text-sm mb-0">Enter password to access Employee Management</p>
+            <p className="text-amber-100 text-sm mb-0">Enter password to access attendance marking</p>
           </div>
 
           {/* Form */}
@@ -77,7 +77,7 @@ export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
                       setError('');
                     }}
                     placeholder="Enter password"
-                    className="w-full pl-12 pr-12 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm"
+                    className="w-full pl-12 pr-12 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 text-sm"
                     autoFocus
                   />
                   <button
@@ -102,14 +102,11 @@ export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3.5 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-600 transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                className="w-full bg-gradient-to-r from-amber-600 to-amber-500 text-white py-3.5 rounded-xl font-semibold hover:from-amber-700 hover:to-amber-600 transition-all duration-300 shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40"
               >
                 Unlock Access
               </button>
             </form>
-
-            {/* Password Hint */}
-            
           </div>
         </div>
       </div>

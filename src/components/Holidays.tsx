@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, Plus, Trash2, Calendar } from 'lucide-react';
 import { Palmtree } from 'lucide-react';
 import { holidayAPI } from '../services/api';
+import { toast } from 'sonner';
 
 export interface Holiday {
   _id?: string;
@@ -87,21 +88,75 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
       setDate('');
       setType('National');
       setDescription('');
+      toast.success('Holiday added successfully', {
+        position: 'top-center'
+      });
     } catch (err) {
       console.error('Failed to create holiday', err);
+      toast.error('Failed to add holiday', {
+        position: 'top-center'
+      });
     }
   };
 
   const deleteHoliday = async (id?: string | number) => {
     if (!id) return;
-    if (confirm('Are you sure you want to delete this holiday?')) {
-      try {
-        await holidayAPI.delete(String(id));
-        await loadHolidays();
-      } catch (err) {
-        console.error('Failed to delete holiday', err);
-      }
-    }
+
+    let dismissed = false;
+
+    toast.custom(
+      (t) => (
+        <div className="bg-white shadow-2xl border border-gray-200 max-w-sm overflow-hidden" style={{ borderRadius: '5px' }}>
+          
+        <div className="p-6">
+            <p className="text-gray-800 text-base leading-relaxed mb-6 font-medium">
+              Are you sure you want to delete this holiday? 
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    toast.dismiss(t);
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                style={{ borderRadius: '5px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    try {
+                      await holidayAPI.delete(String(id));
+                      await loadHolidays();
+                      toast.dismiss(t);
+                      toast.success('Holiday deleted successfully', {
+                        position: 'top-center'
+                      });
+                    } catch (err) {
+                      toast.error('Failed to delete holiday', {
+                        position: 'top-center'
+                      });
+                    }
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ),
+      { position: 'top-center' }
+    );
   };
 
   const getTypeColor = (type: string) => {
@@ -248,66 +303,63 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down">
+          <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl" style={{ borderRadius: '5px' }}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-8 py-6 border-b border-purple-700">
-              <h2 className="!text-white !mb-1 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Palmtree className="w-5 h-5 !text-white" />
-                </div>
+            <div className="px-6 py-4" style={{ background: 'linear-gradient(to right, #9333ea, #7e22ce)' }}>
+              <h2 className="text-base font-bold" style={{ color: '#ffffff', margin: 0 }}>
                 Add Holiday
               </h2>
-              <p className="!text-purple-100 text-sm !mb-0">
+              <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.9)', margin: '4px 0 0 0' }}>
                 Add a new holiday to the company calendar
               </p>
             </div>
             
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="space-y-5">
                 {/* Holiday Name */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Holiday Name
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Holiday Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                     placeholder="e.g., Memorial Day, Independence Day"
                     required
                   />
                 </div>
 
                 {/* Date and Type Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {/* Date */}
                   <div className="space-y-2">
-                    <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                      Date
-                      <span className="!text-red-500">*</span>
+                    <label className="block text-gray-900 font-medium text-sm">
+                      Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300"
+                      className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      style={{ borderRadius: '5px' }}
                       required
                     />
                   </div>
 
                   {/* Type */}
                   <div className="space-y-2">
-                    <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                      Holiday Type
-                      <span className="!text-red-500">*</span>
+                    <label className="block text-gray-900 font-medium text-sm">
+                      Holiday Type <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={type}
                       onChange={(e) => setType(e.target.value as Holiday['type'])}
-                      className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                      className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white"
+                      style={{ borderRadius: '5px' }}
                       required
                     >
                       <option value="National">National Holiday</option>
@@ -319,50 +371,52 @@ export function Holidays({ holidays, setHolidays }: HolidaysProps) {
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium">
+                  <label className="block text-gray-900 font-medium text-sm">
                     Description
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-gray-300 resize-none"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+                    style={{ borderRadius: '5px' }}
                     rows={4}
                     placeholder="Add a brief description of the holiday (optional)"
                   />
                 </div>
 
                 {/* Info Box */}
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-5">
+                <div className="bg-purple-50 border-l-4 border-purple-500 p-4" style={{ borderRadius: '5px' }}>
                   <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 !text-purple-600 flex-shrink-0 mt-0.5" />
+                    <Calendar className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm !text-gray-900 font-medium !mb-1">Holiday Information</p>
-                      <p className="text-sm !text-gray-600 !mb-0">
+                      <p className="text-sm text-gray-900 font-medium mb-1">Holiday Information</p>
+                      <p className="text-sm text-gray-700">
                         This holiday will be visible to all employees and will be marked as a non-working day in the system.
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
-            </form>
 
-            {/* Footer */}
-            <div className="px-8 py-5 bg-gray-50 border-t border-gray-200 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                onClick={handleSubmit}
-                className="flex-1 px-6 py-3.5 bg-purple-600 !text-white rounded-xl hover:bg-purple-700 transition-colors shadow-lg shadow-purple-600/30 font-medium"
-              >
-                Add Holiday
-              </button>
-            </div>
+              {/* Footer - Move inside form */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                  style={{ borderRadius: '5px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-5 py-2.5 text-white hover:bg-purple-700 transition-colors shadow-lg font-bold text-sm"
+                  style={{ borderRadius: '5px', backgroundColor: '#9333ea' }}
+                >
+                  Add
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -420,7 +420,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down border-l-4 border-blue-600">
+          <div className="bg-white max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down border-l-4 border-blue-600">
             {/* Header */}
             <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 border-b-2 border-blue-500">
               <div className="flex items-start justify-between">
@@ -449,7 +449,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-5 overflow-y-auto max-h-[calc(90vh-160px)] bg-slate-50">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* First Name */}
                 <div className="space-y-1.5">
                   <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">

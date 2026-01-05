@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, Plus, Pin, Calendar, User, Trash2, Edit } from 'lucide-react';
 import { announcementAPI } from '../services/api';
+import { toast } from 'sonner';
 
 export interface Announcement {
   _id?: string;
@@ -105,8 +106,14 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
       setContent('');
       setCategory('General');
       setIsPinned(false);
+      toast.success('Announcement published successfully', {
+        position: 'top-center'
+      });
     } catch (err) {
       console.error('Failed to create announcement', err);
+      toast.error('Failed to publish announcement', {
+        position: 'top-center'
+      });
     }
   };
 
@@ -115,9 +122,64 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
   };
 
   const deleteAnnouncement = (announcementId?: string | number) => {
-    if (confirm('Are you sure you want to delete this announcement?')) {
-      handleDelete(announcementId);
-    }
+    if (!announcementId) return;
+
+    let dismissed = false;
+
+    toast.custom(
+      (t) => (
+        <div className="bg-white shadow-2xl border border-gray-200 max-w-sm overflow-hidden" style={{ borderRadius: '5px' }}>
+          
+          
+          <div className="p-6">
+            <p className="text-gray-800 text-base leading-relaxed mb-6 font-medium">
+              Are you sure you want to delete this announcement? 
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    toast.dismiss(t);
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                style={{ borderRadius: '5px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    try {
+                      await announcementAPI.delete(String(announcementId));
+                      await loadAnnouncements();
+                      toast.dismiss(t);
+                      toast.success('Announcement deleted successfully', {
+                        position: 'top-center'
+                      });
+                    } catch (err) {
+                      toast.error('Failed to delete announcement', {
+                        position: 'top-center'
+                      });
+                    }
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ),
+      { position: 'top-center' }
+    );
   };
 
   const handlePin = async (id?: number | string, isPinnedValue?: boolean) => {
@@ -127,16 +189,6 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
       await loadAnnouncements();
     } catch (err) {
       console.error('Failed to pin announcement', err);
-    }
-  };
-
-  const handleDelete = async (id?: number | string) => {
-    if (!id) return;
-    try {
-      await announcementAPI.delete(String(id));
-      await loadAnnouncements();
-    } catch (err) {
-      console.error('Failed to delete announcement', err);
     }
   };
 
@@ -249,34 +301,31 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
       {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-slide-down">
+          <div className="bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl" style={{ borderRadius: '5px' }}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-8 py-6 border-b border-amber-700">
-              <h2 className="!text-white !mb-1 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Bell className="w-5 h-5 !text-white" />
-                </div>
+            <div className="px-6 py-4" style={{ background: 'linear-gradient(to right, #d97706, #b45309)' }}>
+              <h2 className="text-base font-bold" style={{ color: '#ffffff', margin: 0 }}>
                 Create Announcement
               </h2>
-              <p className="!text-amber-100 text-sm !mb-0">
+              <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.9)', margin: '4px 0 0 0' }}>
                 Broadcast an important message to all employees
               </p>
             </div>
             
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="space-y-5">
                 {/* Title */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Announcement Title
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Announcement Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all hover:border-gray-300"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                    style={{ borderRadius: '5px' }}
                     placeholder="Enter a clear and concise title..."
                     required
                   />
@@ -284,14 +333,14 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
 
                 {/* Category */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Category
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as Announcement['category'])}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-white"
+                    style={{ borderRadius: '5px' }}
                     required
                   >
                     <option value="General">General</option>
@@ -304,60 +353,62 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
 
                 {/* Content */}
                 <div className="space-y-2">
-                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
-                    Announcement Content
-                    <span className="!text-red-500">*</span>
+                  <label className="block text-gray-900 font-medium text-sm">
+                    Announcement Content <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all hover:border-gray-300 resize-none"
-                    rows={8}
+                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all resize-none"
+                    style={{ borderRadius: '5px' }}
+                    rows={6}
                     placeholder="Write your announcement message here. Be clear and provide all necessary details..."
                     required
                   />
                 </div>
 
                 {/* Pin Checkbox */}
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-5">
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-4" style={{ borderRadius: '5px' }}>
                   <div className="flex items-start gap-4">
                     <input
                       type="checkbox"
                       id="isPinned"
                       checked={isPinned}
                       onChange={(e) => setIsPinned(e.target.checked)}
-                      className="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 mt-0.5"
+                      className="w-5 h-5 text-amber-600 border-gray-300 focus:ring-amber-500 mt-0.5"
+                      style={{ borderRadius: '5px' }}
                     />
                     <div className="flex-1">
-                      <label htmlFor="isPinned" className="!text-gray-900 font-medium !mb-1 cursor-pointer flex items-center gap-2">
+                      <label htmlFor="isPinned" className="text-gray-900 font-medium mb-1 cursor-pointer flex items-center gap-2">
                         📌 Pin this announcement
                       </label>
-                      <p className="text-sm !text-gray-600 !mb-0">
+                      <p className="text-sm text-gray-700">
                         Pinned announcements will appear at the top of the list for better visibility
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
-            </form>
 
-            {/* Footer */}
-            <div className="px-8 py-5 bg-gray-50 border-t border-gray-200 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                onClick={handleSubmit}
-                className="flex-1 px-6 py-3.5 bg-amber-600 !text-white rounded-xl hover:bg-amber-700 transition-colors shadow-lg shadow-amber-600/30 font-medium"
-              >
-                Publish Announcement
-              </button>
-            </div>
+              {/* Footer - Move inside form */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                  style={{ borderRadius: '5px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-5 py-2.5 text-white hover:bg-amber-700 transition-colors shadow-lg font-bold text-sm"
+                  style={{ borderRadius: '5px', backgroundColor: '#d97706' }}
+                >
+                  Publish
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

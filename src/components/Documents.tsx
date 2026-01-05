@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileText, Upload, Download, Trash2, Search, Filter, File } from 'lucide-react';
 import { documentAPI } from '../services/api';
+import { toast } from 'sonner';
 
 interface Employee {
   _id?: string;
@@ -133,14 +134,62 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
 
   const deleteDocument = async (id?: string | number) => {
     if (!id) return;
-    if (confirm('Are you sure you want to delete this document?')) {
-      try {
-        await documentAPI.delete(String(id));
-        await loadDocuments();
-      } catch (err) {
-        console.error('Failed to delete document', err);
-      }
-    }
+
+    let dismissed = false;
+
+    toast.custom(
+      (t) => (
+        <div className="bg-white shadow-2xl border border-gray-200 max-w-sm overflow-hidden" style={{ borderRadius: '5px' }}>
+            
+          <div className="p-6">
+            <p className="text-gray-800 text-base leading-relaxed mb-6 font-medium">
+              Are you sure you want to delete this document?
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    toast.dismiss(t);
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                style={{ borderRadius: '5px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!dismissed) {
+                    dismissed = true;
+                    try {
+                      await documentAPI.delete(String(id));
+                      await loadDocuments();
+                      toast.dismiss(t);
+                      toast.success('Document deleted successfully', {
+                        position: 'top-center'
+                      });
+                    } catch (err) {
+                      toast.error('Failed to delete document', {
+                        position: 'top-center'
+                      });
+                    }
+                  }
+                }}
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ),
+      { position: 'top-center' }
+    );
   };
 
   const filteredDocuments = documents.filter(doc => {
@@ -391,20 +440,7 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                   />
                 </div>
 
-                {/* Info Box */}
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-4" style={{ borderRadius: '5px' }}>
-                  <div className="flex items-start gap-3">
-                    <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-900 font-medium mb-2">Document Guidelines</p>
-                      <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                        <li>Ensure document is clear and readable</li>
-                        <li>Use descriptive file names</li>
-                        <li>Sensitive documents will be encrypted</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
+
               </div>
             </form>
 

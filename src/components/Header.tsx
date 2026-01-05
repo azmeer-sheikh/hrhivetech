@@ -80,10 +80,6 @@ export function Header({ onMenuClick, setActiveTab }: HeaderProps) {
               <Menu className="w-6 h-6 text-gray-700" />
             </button>
             
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-0 leading-tight">Hive Tech Solutions</h1>
-              <p className="text-sm text-gray-500 mb-0 mt-1">HR Management System</p>
-            </div>
           </div>
 
           {/* Right: Time Zones & User Dropdown */}
