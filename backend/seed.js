@@ -4,80 +4,70 @@ const Employee = require('./src/models/Employee');
 const Attendance = require('./src/models/Attendance');
 require('dotenv').config();
 
-// 57 Employees Data
+// 57 Real-time Employees Data
 const employeesData = [
-  // Engineering Department (15 employees)
-  { firstName: 'John', lastName: 'Doe', email: 'john.doe@company.com', department: 'Engineering', position: 'Senior Engineer', salary: 120000 },
-  { firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@company.com', department: 'Engineering', position: 'Software Engineer', salary: 95000 },
-  { firstName: 'Michael', lastName: 'Johnson', email: 'michael.johnson@company.com', department: 'Engineering', position: 'Full Stack Developer', salary: 100000 },
-  { firstName: 'Sarah', lastName: 'Williams', email: 'sarah.williams@company.com', department: 'Engineering', position: 'Frontend Developer', salary: 90000 },
-  { firstName: 'David', lastName: 'Brown', email: 'david.brown@company.com', department: 'Engineering', position: 'Backend Developer', salary: 95000 },
-  { firstName: 'Emma', lastName: 'Davis', email: 'emma.davis@company.com', department: 'Engineering', position: 'QA Engineer', salary: 80000 },
-  { firstName: 'Robert', lastName: 'Miller', email: 'robert.miller@company.com', department: 'Engineering', position: 'DevOps Engineer', salary: 110000 },
-  { firstName: 'Lisa', lastName: 'Wilson', email: 'lisa.wilson@company.com', department: 'Engineering', position: 'Software Architect', salary: 130000 },
-  { firstName: 'James', lastName: 'Moore', email: 'james.moore@company.com', department: 'Engineering', position: 'Tech Lead', salary: 115000 },
-  { firstName: 'Mary', lastName: 'Taylor', email: 'mary.taylor@company.com', department: 'Engineering', position: 'Mobile Developer', salary: 92000 },
-  { firstName: 'William', lastName: 'Anderson', email: 'william.anderson@company.com', department: 'Engineering', position: 'Database Engineer', salary: 105000 },
-  { firstName: 'Jennifer', lastName: 'Thomas', email: 'jennifer.thomas@company.com', department: 'Engineering', position: 'Security Engineer', salary: 115000 },
-  { firstName: 'Richard', lastName: 'Jackson', email: 'richard.jackson@company.com', department: 'Engineering', position: 'Solutions Architect', salary: 125000 },
-  { firstName: 'Patricia', lastName: 'White', email: 'patricia.white@company.com', department: 'Engineering', position: 'ML Engineer', salary: 130000 },
-  { firstName: 'Charles', lastName: 'Harris', email: 'charles.harris@company.com', department: 'Engineering', position: 'Cloud Engineer', salary: 112000 },
+  // Phase 4 - Sales Operations
+  { firstName: 'HR', lastName: 'Manager', email: 'hr@hivetech.com', phone: '+92 300 0000001', department: 'Sales', position: 'HR', salary: 100000, dateOfBirth: '1990-01-15', gender: 'Male', joiningDate: '2024-01-01', status: 'Active' },
+  { firstName: 'Mr. Obaid', lastName: 'Hassan', email: 'obaid.hassan@hivetech.com', phone: '+92 300 0000002', department: 'Sales', position: 'Support (Sam)', salary: 115000, dateOfBirth: '1992-03-20', gender: 'Male', joiningDate: '2024-01-15', status: 'Active' },
+  { firstName: 'Mr. Muhammad', lastName: 'Hunzala', email: 'm.hunzala@hivetech.com', phone: '+92 300 0000003', department: 'Sales', position: 'Dialer (Henry)', salary: 70000, dateOfBirth: '1995-05-10', gender: 'Male', joiningDate: '2024-02-01', status: 'Active' },
+  { firstName: 'Mr. Ali', lastName: 'Haider', email: 'ali.haider@hivetech.com', phone: '+92 300 0000004', department: 'Sales', position: 'Dialer (Tyler)', salary: 80000, dateOfBirth: '1993-07-22', gender: 'Male', joiningDate: '2024-02-10', status: 'Active' },
+  { firstName: 'Mr. Saifullah', lastName: 'Khan', email: 'saifullah@hivetech.com', phone: '+92 300 0000005', department: 'Sales', position: 'Dialer (Jaison)', salary: 45000, dateOfBirth: '1998-02-14', gender: 'Male', joiningDate: '2024-03-01', status: 'Active' },
+  { firstName: 'Ms. Alisha', lastName: 'Batool', email: 'alisha.batool@hivetech.com', phone: '+92 300 0000006', department: 'Sales', position: 'Dialer (Julia)', salary: 45000, dateOfBirth: '1996-09-08', gender: 'Female', joiningDate: '2024-03-15', status: 'Active' },
+  { firstName: 'Ms. Kainat', lastName: 'Zahra', email: 'kainat.zahra@hivetech.com', phone: '+92 300 0000007', department: 'Sales', position: 'Dialer (Stella)', salary: 45000, dateOfBirth: '1997-11-25', gender: 'Female', joiningDate: '2024-04-01', status: 'Active' },
+  { firstName: 'Mr. Muhammd', lastName: 'Hassan', email: 'm.hassan@hivetech.com', phone: '+92 300 0000008', department: 'Sales', position: 'Dialer (Fred)', salary: 40000, dateOfBirth: '1999-04-12', gender: 'Male', joiningDate: '2024-04-10', status: 'Active' },
+  { firstName: 'Mr. Haris', lastName: 'Shahzad', email: 'haris.shahzad@hivetech.com', phone: '+92 300 0000009', department: 'Sales', position: 'Dialer (Daniel Smith)', salary: 60000, dateOfBirth: '1994-06-30', gender: 'Male', joiningDate: '2024-05-01', status: 'Active' },
+  { firstName: 'Ms. Faiza', lastName: 'Abbas', email: 'faiza.abbas@hivetech.com', phone: '+92 300 0000010', department: 'Sales', position: 'Lead Generation Specialist', salary: 22167, dateOfBirth: '2000-08-18', gender: 'Female', joiningDate: '2024-05-15', status: 'Active' },
 
-  // HR Department (8 employees)
-  { firstName: 'Michelle', lastName: 'Clark', email: 'michelle.clark@company.com', department: 'HR', position: 'HR Manager', salary: 85000 },
-  { firstName: 'Kevin', lastName: 'Lewis', email: 'kevin.lewis@company.com', department: 'HR', position: 'Recruiter', salary: 75000 },
-  { firstName: 'Amanda', lastName: 'Walker', email: 'amanda.walker@company.com', department: 'HR', position: 'HR Specialist', salary: 70000 },
-  { firstName: 'Daniel', lastName: 'Hall', email: 'daniel.hall@company.com', department: 'HR', position: 'Benefits Administrator', salary: 65000 },
-  { firstName: 'Karen', lastName: 'Allen', email: 'karen.allen@company.com', department: 'HR', position: 'Talent Acquisition', salary: 78000 },
-  { firstName: 'Paul', lastName: 'Young', email: 'paul.young@company.com', department: 'HR', position: 'Training Coordinator', salary: 62000 },
-  { firstName: 'Susan', lastName: 'Hernandez', email: 'susan.hernandez@company.com', department: 'HR', position: 'Compensation Analyst', salary: 72000 },
-  { firstName: 'Mark', lastName: 'King', email: 'mark.king@company.com', department: 'HR', position: 'HR Business Partner', salary: 88000 },
+  // Sales Operations
+  { firstName: 'Mr. Qasim', lastName: 'Ali', email: 'qasim.ali@hivetech.com', phone: '+92 300 0000011', department: 'Sales', position: 'Director', salary: 125000, dateOfBirth: '1988-01-10', gender: 'Male', joiningDate: '2023-01-01', status: 'Active' },
+  { firstName: 'Ms. Nazia', lastName: 'Ahmed', email: 'nazia@hivetech.com', phone: '+92 300 0000012', department: 'Sales', position: 'Director', salary: 125000, dateOfBirth: '1989-03-15', gender: 'Female', joiningDate: '2023-01-01', status: 'Active' },
+  { firstName: 'Ms. Amna', lastName: 'Rauf', email: 'amna.rauf@hivetech.com', phone: '+92 300 0000013', department: 'Sales', position: 'Sales Closer', salary: 100000, dateOfBirth: '1991-05-20', gender: 'Female', joiningDate: '2023-03-01', status: 'Active' },
+  { firstName: 'Ms. Noor', lastName: 'Fatima', email: 'noor.fatima@hivetech.com', phone: '+92 300 0000014', department: 'Sales', position: 'Eva Marshall', salary: 300000, dateOfBirth: '1987-02-28', gender: 'Female', joiningDate: '2023-02-01', status: 'Active' },
+  { firstName: 'Mr. Umair', lastName: 'Azam', email: 'umair.azam@hivetech.com', phone: '+92 300 0000015', department: 'Sales', position: 'Sales Closer', salary: 175000, dateOfBirth: '1990-07-12', gender: 'Male', joiningDate: '2023-04-01', status: 'Active' },
+  { firstName: 'Mr. Usman', lastName: 'Ali', email: 'usman.ali@hivetech.com', phone: '+92 300 0000016', department: 'Sales', position: 'Dialer (Ethen)', salary: 70000, dateOfBirth: '1994-09-05', gender: 'Male', joiningDate: '2023-05-01', status: 'Active' },
+  { firstName: 'Syed', lastName: 'Husnain Sherazi', email: 'husnain.sherazi@hivetech.com', phone: '+92 300 0000017', department: 'Sales', position: 'Dialer (Andy)', salary: 65000, dateOfBirth: '1995-11-18', gender: 'Male', joiningDate: '2023-06-01', status: 'Active' },
+  { firstName: 'Mr. Bilal', lastName: 'Azam', email: 'bilal.azam@hivetech.com', phone: '+92 300 0000018', department: 'Sales', position: 'Support (Leo)', salary: 70000, dateOfBirth: '1992-04-22', gender: 'Male', joiningDate: '2023-07-01', status: 'Active' },
+  { firstName: 'Mr. Abu Baker', lastName: 'Saeed', email: 'abu.saeed@hivetech.com', phone: '+92 300 0000019', department: 'Sales', position: 'Dialer (Simon)', salary: 9032, dateOfBirth: '1996-10-30', gender: 'Male', joiningDate: '2024-10-01', status: 'Inactive' },
+  { firstName: 'Mr. Umair', lastName: 'Iqbal', email: 'umair.iqbal@hivetech.com', phone: '+92 300 0000020', department: 'Sales', position: 'Dialer (Brian)', salary: 40000, dateOfBirth: '1998-12-08', gender: 'Male', joiningDate: '2024-06-01', status: 'Active' },
+  { firstName: 'Mr. Elisha', lastName: 'Asif', email: 'elisha.asif@hivetech.com', phone: '+92 300 0000021', department: 'Sales', position: 'Dialer (James)', salary: 40000, dateOfBirth: '1999-01-14', gender: 'Male', joiningDate: '2024-06-15', status: 'Active' },
+  { firstName: 'Mirza', lastName: 'Shehroze Baig', email: 'shehroze.baig@hivetech.com', phone: '+92 300 0000022', department: 'Sales', position: 'Dialer (Jeff)', salary: 65000, dateOfBirth: '1993-08-26', gender: 'Male', joiningDate: '2024-07-01', status: 'Active' },
+  { firstName: 'Mr. Massab', lastName: 'Tahir', email: 'massab.tahir@hivetech.com', phone: '+92 300 0000023', department: 'Sales', position: 'Dialer (Kevin)', salary: 65000, dateOfBirth: '1994-10-11', gender: 'Male', joiningDate: '2024-07-15', status: 'Active' },
+  { firstName: 'Mr. Hassan Naveed', lastName: 'Kahloon', email: 'hassan.kahloon@hivetech.com', phone: '+92 300 0000024', department: 'Sales', position: 'Dialer (Nick Johnson)', salary: 35000, dateOfBirth: '2000-03-17', gender: 'Male', joiningDate: '2024-08-01', status: 'Active' },
+  { firstName: 'Mr. Muhammad', lastName: 'Faizan', email: 'm.faizan1@hivetech.com', phone: '+92 300 0000025', department: 'Sales', position: 'Dialer (Ted Miller)', salary: 35000, dateOfBirth: '2000-05-22', gender: 'Male', joiningDate: '2024-08-10', status: 'Active' },
+  { firstName: 'Mr. Muhammad', lastName: 'Faizan', email: 'm.faizan2@hivetech.com', phone: '+92 300 0000026', department: 'Sales', position: 'Dialer (Blake Wilson)', salary: 35000, dateOfBirth: '2000-06-09', gender: 'Male', joiningDate: '2024-08-15', status: 'Active' },
+  { firstName: 'Mr. M', lastName: 'Shahzaib Awan', email: 'shahzaib.awan@hivetech.com', phone: '+92 300 0000027', department: 'Sales', position: 'Dialer (Eric)', salary: 35000, dateOfBirth: '2000-07-03', gender: 'Male', joiningDate: '2024-09-01', status: 'Active' },
+  { firstName: 'Mr. Khalid', lastName: 'Saifullah', email: 'khalid.saifullah@hivetech.com', phone: '+92 300 0000028', department: 'Sales', position: 'Dialer (Jack)', salary: 35000, dateOfBirth: '2000-08-14', gender: 'Male', joiningDate: '2024-09-10', status: 'Active' },
+  { firstName: 'Mr. Usama', lastName: 'Ijaz', email: 'usama.ijaz@hivetech.com', phone: '+92 300 0000029', department: 'Sales', position: 'Dialer (Brevis)', salary: 35000, dateOfBirth: '2000-09-21', gender: 'Male', joiningDate: '2024-09-15', status: 'Active' },
+  { firstName: 'Ms. Alisha', lastName: 'Ali', email: 'alisha.qa@hivetech.com', phone: '+92 300 0000030', department: 'Sales', position: 'QA', salary: 35000, dateOfBirth: '1999-10-12', gender: 'Female', joiningDate: '2024-10-01', status: 'Active' },
+  { firstName: 'Mr. Nauman', lastName: 'Akmal', email: 'nauman.akmal@hivetech.com', phone: '+92 300 0000031', department: 'Sales', position: 'Dialer (Ben Smith)', salary: 37258, dateOfBirth: '2000-11-05', gender: 'Male', joiningDate: '2024-10-29', status: 'Active' },
+  { firstName: 'Mr. Ayaz Ali', lastName: 'Shah', email: 'ayaz.shah@hivetech.com', phone: '+92 300 0000032', department: 'Sales', position: 'Dialer (Chris Walker)', salary: 139320, dateOfBirth: '1991-12-19', gender: 'Male', joiningDate: '2024-10-15', status: 'Active' },
+  { firstName: 'Mr. Shakeel', lastName: 'Ahmed', email: 'shakeel.ahmed@hivetech.com', phone: '+92 300 0000033', department: 'Sales', position: 'Packaging', salary: 60000, dateOfBirth: '1997-01-07', gender: 'Male', joiningDate: '2024-03-01', status: 'Active' },
+  { firstName: 'Mr. Faaiz', lastName: 'Ahmed', email: 'faaiz.ahmed@hivetech.com', phone: '+92 300 0000034', department: 'Sales', position: 'Dialer', salary: 22500, dateOfBirth: '2001-02-13', gender: 'Male', joiningDate: '2024-10-27', status: 'Active' },
 
-  // Sales Department (10 employees)
-  { firstName: 'Christopher', lastName: 'Wright', email: 'christopher.wright@company.com', department: 'Sales', position: 'Sales Manager', salary: 90000 },
-  { firstName: 'Nancy', lastName: 'Lopez', email: 'nancy.lopez@company.com', department: 'Sales', position: 'Account Executive', salary: 80000 },
-  { firstName: 'Thomas', lastName: 'Hill', email: 'thomas.hill@company.com', department: 'Sales', position: 'Sales Representative', salary: 70000 },
-  { firstName: 'Lisa', lastName: 'Scott', email: 'lisa.scott@company.com', department: 'Sales', position: 'Business Development', salary: 85000 },
-  { firstName: 'Steven', lastName: 'Green', email: 'steven.green@company.com', department: 'Sales', position: 'Sales Executive', salary: 82000 },
-  { firstName: 'Betty', lastName: 'Adams', email: 'betty.adams@company.com', department: 'Sales', position: 'Account Manager', salary: 75000 },
-  { firstName: 'Joseph', lastName: 'Nelson', email: 'joseph.nelson@company.com', department: 'Sales', position: 'Regional Sales Lead', salary: 95000 },
-  { firstName: 'Margaret', lastName: 'Carter', email: 'margaret.carter@company.com', department: 'Sales', position: 'Sales Coordinator', salary: 65000 },
-  { firstName: 'Edward', lastName: 'Mitchell', email: 'edward.mitchell@company.com', department: 'Sales', position: 'Sales Director', salary: 120000 },
-  { firstName: 'Dorothy', lastName: 'Perez', email: 'dorothy.perez@company.com', department: 'Sales', position: 'Enterprise Account Executive', salary: 95000 },
-
-  // Marketing Department (8 employees)
-  { firstName: 'Ronald', lastName: 'Roberts', email: 'ronald.roberts@company.com', department: 'Marketing', position: 'Marketing Manager', salary: 88000 },
-  { firstName: 'Carol', lastName: 'Phillips', email: 'carol.phillips@company.com', department: 'Marketing', position: 'Digital Marketer', salary: 75000 },
-  { firstName: 'George', lastName: 'Campbell', email: 'george.campbell@company.com', department: 'Marketing', position: 'Content Marketing', salary: 72000 },
-  { firstName: 'Sandra', lastName: 'Parker', email: 'sandra.parker@company.com', department: 'Marketing', position: 'Social Media Specialist', salary: 68000 },
-  { firstName: 'Kenneth', lastName: 'Evans', email: 'kenneth.evans@company.com', department: 'Marketing', position: 'Marketing Coordinator', salary: 60000 },
-  { firstName: 'Shirley', lastName: 'Edwards', email: 'shirley.edwards@company.com', department: 'Marketing', position: 'Brand Manager', salary: 85000 },
-  { firstName: 'Matthew', lastName: 'Collins', email: 'matthew.collins@company.com', department: 'Marketing', position: 'Marketing Director', salary: 110000 },
-  { firstName: 'Angela', lastName: 'Stewart', email: 'angela.stewart@company.com', department: 'Marketing', position: 'SEO Specialist', salary: 70000 },
-
-  // Finance Department (8 employees)
-  { firstName: 'Donald', lastName: 'Sanchez', email: 'donald.sanchez@company.com', department: 'Finance', position: 'Finance Manager', salary: 95000 },
-  { firstName: 'Helen', lastName: 'Morris', email: 'helen.morris@company.com', department: 'Finance', position: 'Accountant', salary: 75000 },
-  { firstName: 'Ashley', lastName: 'Rogers', email: 'ashley.rogers@company.com', department: 'Finance', position: 'Financial Analyst', salary: 80000 },
-  { firstName: 'Brian', lastName: 'Morgan', email: 'brian.morgan@company.com', department: 'Finance', position: 'Senior Accountant', salary: 88000 },
-  { firstName: 'Kathleen', lastName: 'Peterson', email: 'kathleen.peterson@company.com', department: 'Finance', position: 'Controller', salary: 110000 },
-  { firstName: 'Gary', lastName: 'Gray', email: 'gary.gray@company.com', department: 'Finance', position: 'Budget Analyst', salary: 72000 },
-  { firstName: 'Donna', lastName: 'Ramirez', email: 'donna.ramirez@company.com', department: 'Finance', position: 'Payroll Specialist', salary: 70000 },
-  { firstName: 'Edward', lastName: 'James', email: 'edward.james@company.com', department: 'Finance', position: 'CFO', salary: 150000 },
-
-  // Operations Department (5 employees)
-  { firstName: 'Frank', lastName: 'Bennett', email: 'frank.bennett@company.com', department: 'Operations', position: 'Operations Manager', salary: 88000 },
-  { firstName: 'Grace', lastName: 'Wood', email: 'grace.wood@company.com', department: 'Operations', position: 'Operations Specialist', salary: 70000 },
-  { firstName: 'Henry', lastName: 'Ross', email: 'henry.ross@company.com', department: 'Operations', position: 'Logistics Coordinator', salary: 65000 },
-  { firstName: 'Irene', lastName: 'Henderson', email: 'irene.henderson@company.com', department: 'Operations', position: 'Supply Chain Analyst', salary: 75000 },
-  { firstName: 'Jack', lastName: 'Coleman', email: 'jack.coleman@company.com', department: 'Operations', position: 'Operations Director', salary: 105000 },
-
-  // IT Department (5 employees)
-  { firstName: 'Kevin', lastName: 'Jenkins', email: 'kevin.jenkins@company.com', department: 'IT', position: 'IT Manager', salary: 90000 },
-  { firstName: 'Laura', lastName: 'Perry', email: 'laura.perry@company.com', department: 'IT', position: 'IT Support Specialist', salary: 65000 },
-  { firstName: 'Michael', lastName: 'Powell', email: 'michael.powell@company.com', department: 'IT', position: 'Network Administrator', salary: 80000 },
-  { firstName: 'Nancy', lastName: 'Long', email: 'nancy.long@company.com', department: 'IT', position: 'System Administrator', salary: 85000 },
-  { firstName: 'Oliver', lastName: 'Patterson', email: 'oliver.patterson@company.com', department: 'IT', position: 'IT Director', salary: 115000 },
+  // Tech Department
+  { firstName: 'Mr. Abdul Hannan', lastName: 'Butt', email: 'hannan.butt@hivetech.com', phone: '+92 300 0000035', department: 'IT', position: 'Director', salary: 350000, dateOfBirth: '1982-03-15', gender: 'Male', joiningDate: '2022-01-01', status: 'Active' },
+  { firstName: 'Mr. Azmeer', lastName: 'Sheikh', email: 'azmeer.sheikh@hivetech.com', phone: '+92 300 0000036', department: 'IT', position: 'CTO', salary: 125000, dateOfBirth: '1985-06-22', gender: 'Male', joiningDate: '2022-06-01', status: 'Active' },
+  { firstName: 'Ms. Atiqa', lastName: 'Mohsin', email: 'atiqa.mohsin@hivetech.com', phone: '+92 300 0000037', department: 'IT', position: 'Dy. CTO', salary: 125000, dateOfBirth: '1986-07-10', gender: 'Female', joiningDate: '2022-06-01', status: 'Active' },
+  { firstName: 'Mr. Faizan', lastName: 'Basit (Tabish)', email: 'faizan.basit@hivetech.com', phone: '+92 300 0000038', department: 'IT', position: 'Sr. SEO Executive', salary: 160000, dateOfBirth: '1984-09-05', gender: 'Male', joiningDate: '2022-09-01', status: 'Active' },
+  { firstName: 'Mr. Mhammad', lastName: 'Muneeb', email: 'm.muneeb@hivetech.com', phone: '+92 300 0000039', department: 'IT', position: 'Team Lead', salary: 100000, dateOfBirth: '1989-01-18', gender: 'Male', joiningDate: '2023-01-01', status: 'Active' },
+  { firstName: 'Mr. Ubadi', lastName: 'Ali', email: 'ubadi.ali@hivetech.com', phone: '+92 300 0000040', department: 'IT', position: 'SEO Executive', salary: 55000, dateOfBirth: '1992-03-28', gender: 'Male', joiningDate: '2023-03-01', status: 'Active' },
+  { firstName: 'Mr. Ahmad Ameen', lastName: 'Sheikh', email: 'ahmad.sheikh@hivetech.com', phone: '+92 300 0000041', department: 'IT', position: 'SEO Co-Ordinator', salary: 50000, dateOfBirth: '1993-04-12', gender: 'Male', joiningDate: '2023-04-01', status: 'Active' },
+  { firstName: 'Mr. Ameer', lastName: 'Hamza', email: 'ameer.hamza@hivetech.com', phone: '+92 300 0000042', department: 'IT', position: 'SEO Executive', salary: 17742, dateOfBirth: '1998-10-20', gender: 'Male', joiningDate: '2024-10-01', status: 'Inactive' },
+  { firstName: 'Mr. Zareen', lastName: 'Amir Ghauri', email: 'zareen.ghauri@hivetech.com', phone: '+92 300 0000043', department: 'IT', position: 'SEO Expert', salary: 35000, dateOfBirth: '1997-05-08', gender: 'Male', joiningDate: '2024-05-01', status: 'Active' },
+  { firstName: 'Mr. M', lastName: 'Waqas Khalid', email: 'waqas.khalid@hivetech.com', phone: '+92 300 0000044', department: 'IT', position: 'SEO Executive', salary: 55000, dateOfBirth: '1995-02-14', gender: 'Male', joiningDate: '2024-02-01', status: 'Active' },
+  { firstName: 'Mr. Ali', lastName: 'Asghar', email: 'ali.asghar@hivetech.com', phone: '+92 300 0000045', department: 'IT', position: 'SEO Expert', salary: 45000, dateOfBirth: '1996-03-25', gender: 'Male', joiningDate: '2024-03-01', status: 'Active' },
+  { firstName: 'Mr. Zikrriya', lastName: 'Hassan', email: 'zikrriya@hivetech.com', phone: '+92 300 0000046', department: 'IT', position: 'Link Builder', salary: 35000, dateOfBirth: '1998-04-16', gender: 'Male', joiningDate: '2024-04-01', status: 'Active' },
+  { firstName: 'Mr. M', lastName: 'Abdul Rafay', email: 'abdul.rafay@hivetech.com', phone: '+92 300 0000047', department: 'IT', position: 'Junior Product Developer', salary: 15806, dateOfBirth: '2002-10-09', gender: 'Male', joiningDate: '2024-10-01', status: 'Inactive' },
+  { firstName: 'Syed', lastName: 'Muzammil Hussain', email: 'muzammil.hussain@hivetech.com', phone: '+92 300 0000048', department: 'IT', position: 'SEO Intern', salary: 15000, dateOfBirth: '2003-07-14', gender: 'Male', joiningDate: '2024-07-01', status: 'Active' },
+  { firstName: 'Mr. Muhammad', lastName: 'Mohsin', email: 'm.mohsin@hivetech.com', phone: '+92 300 0000049', department: 'IT', position: 'Intern-Web', salary: 25000, dateOfBirth: '2002-08-19', gender: 'Male', joiningDate: '2024-08-01', status: 'Active' },
+  { firstName: 'Mr. Muhammad', lastName: 'Sadeem', email: 'm.sadeem@hivetech.com', phone: '+92 300 0000050', department: 'IT', position: 'Link Builder', salary: 35000, dateOfBirth: '1999-06-11', gender: 'Male', joiningDate: '2024-06-01', status: 'Active' },
+  { firstName: 'Syed M', lastName: 'Hasnain Sherazi', email: 'hasnain.sherazi2@hivetech.com', phone: '+92 300 0000051', department: 'IT', position: 'Intern-Web', salary: 15000, dateOfBirth: '2003-09-23', gender: 'Male', joiningDate: '2024-09-01', status: 'Active' },
+  { firstName: 'Mr. Saad', lastName: 'Ali', email: 'saad.ali@hivetech.com', phone: '+92 300 0000052', department: 'IT', position: 'Link Builder', salary: 10000, dateOfBirth: '2003-09-27', gender: 'Male', joiningDate: '2024-09-15', status: 'Active' },
+  { firstName: 'Mr. Ishtiaq', lastName: 'Bilal', email: 'ishtiaq.bilal@hivetech.com', phone: '+92 300 0000053', department: 'IT', position: 'Link Builder', salary: 10000, dateOfBirth: '2002-08-06', gender: 'Male', joiningDate: '2024-08-01', status: 'Inactive' },
+  { firstName: 'Mr. Muhammad', lastName: 'Hussain', email: 'm.hussain@hivetech.com', phone: '+92 300 0000054', department: 'IT', position: 'Developer', salary: 70000, dateOfBirth: '1997-05-15', gender: 'Male', joiningDate: '2024-05-01', status: 'Active' },
+  { firstName: 'Syed', lastName: 'Mukarram Saeed', email: 'mukarram.saeed@hivetech.com', phone: '+92 300 0000055', department: 'IT', position: 'Graphics Designer', salary: 31500, dateOfBirth: '1999-06-20', gender: 'Male', joiningDate: '2024-06-01', status: 'Active' },
+  { firstName: 'Mr. Mutayyab', lastName: 'Irshad', email: 'mutayyab.irshad@hivetech.com', phone: '+92 300 0000056', department: 'IT', position: 'Dev Intern', salary: 10000, dateOfBirth: '2003-10-11', gender: 'Male', joiningDate: '2024-10-01', status: 'Active' },
+  { firstName: 'Mr. Ali', lastName: 'Raza', email: 'ali.raza@hivetech.com', phone: '+92 300 0000057', department: 'IT', position: 'Reporting', salary: 10000, dateOfBirth: '2003-09-05', gender: 'Male', joiningDate: '2024-09-01', status: 'Active' },
 ];
 
 const seedData = async () => {
@@ -120,7 +110,6 @@ const seedData = async () => {
     // Create 57 employees
     console.log('\n📝 Creating 57 employees...');
     const createdEmployees = [];
-    const genders = ['Male', 'Female'];
 
     for (let i = 0; i < employeesData.length; i++) {
       const empData = employeesData[i];
@@ -130,32 +119,32 @@ const seedData = async () => {
         firstName: empData.firstName,
         lastName: empData.lastName,
         email: empData.email,
-        phone: `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`,
-        dateOfBirth: new Date(1980 + Math.floor(Math.random() * 25), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
-        gender: genders[Math.floor(Math.random() * 2)],
+        phone: empData.phone,
+        dateOfBirth: new Date(empData.dateOfBirth),
+        gender: empData.gender,
         address: {
-          street: `${Math.floor(Math.random() * 999) + 1} Main Street`,
-          city: ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix'][Math.floor(Math.random() * 5)],
-          state: ['NY', 'CA', 'IL', 'TX', 'AZ'][Math.floor(Math.random() * 5)],
-          zipCode: `${Math.floor(Math.random() * 90000) + 10000}`,
-          country: 'USA'
+          street: '123 Business Street',
+          city: 'Lahore',
+          state: 'Punjab',
+          zipCode: '54000',
+          country: 'Pakistan'
         },
         department: empData.department,
         position: empData.position,
-        employmentType: ['Full-time', 'Part-time'][Math.floor(Math.random() * 2)],
-        joiningDate: new Date(2020 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+        employmentType: 'Full-time',
+        joiningDate: new Date(empData.joiningDate),
         salary: empData.salary,
         salaryType: 'Monthly',
-        status: 'Active',
+        status: empData.status,
         emergencyContact: {
           name: `${empData.firstName} Family`,
           relationship: 'Family',
-          phone: `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`
+          phone: empData.phone
         },
         bankDetails: {
           accountNumber: `${Math.floor(Math.random() * 9000000000000000) + 1000000000000000}`,
-          bankName: 'Chase Bank',
-          ifscCode: 'CHASUS33',
+          bankName: 'HBL Bank',
+          ifscCode: 'HBLCPK',
           accountHolderName: `${empData.firstName} ${empData.lastName}`
         }
       });

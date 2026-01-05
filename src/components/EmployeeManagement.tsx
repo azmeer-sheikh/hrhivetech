@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin, Upload, X } from 'lucide-react';
+import { toast } from 'sonner@2.0.3';
 import { Pagination } from './Pagination';
 import { employeeAPI } from '../services/api';
 
@@ -40,6 +41,9 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     lastName: '',
     email: '',
     phone: '',
+    employeeCode: '',
+    dateOfBirth: '',
+    gender: '',
     position: '',
     department: '',
     salary: '',
@@ -102,6 +106,9 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
+        employeeCode: formData.employeeCode,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender,
         position: formData.position,
         department: formData.department,
         salary: parseFloat(formData.salary),
@@ -126,6 +133,9 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         lastName: '',
         email: '',
         phone: '',
+        employeeCode: '',
+        dateOfBirth: '',
+        gender: '',
         position: '',
         department: '',
         salary: '',
@@ -148,6 +158,9 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       lastName: employee.lastName || employee.name?.split(' ').slice(1).join(' ') || '',
       email: employee.email,
       phone: employee.phone,
+      employeeCode: employee.employeeCode || '',
+      dateOfBirth: employee.dateOfBirth || '',
+      gender: employee.gender || '',
       position: employee.position,
       department: employee.department,
       salary: employee.salary.toString(),
@@ -160,17 +173,39 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
   };
 
   const handleDelete = async (id: string | number | undefined) => {
-    if (!id || !window.confirm('Are you sure you want to delete this employee?')) return;
+    if (!id) return;
 
-    try {
-      setLoading(true);
-      await employeeAPI.delete(String(id));
-      await loadEmployees();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete employee');
-    } finally {
-      setLoading(false);
-    }
+    toast((t) => (
+      <div className="flex flex-col gap-3">
+        <p>Are you sure you want to delete this employee? This action cannot be undone.</p>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={() => toast.dismiss(t)}
+            className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setLoading(true);
+                await employeeAPI.delete(String(id));
+                await loadEmployees();
+                toast.success('Employee deleted successfully');
+                toast.dismiss(t);
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'Failed to delete employee');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ));
   };
 
   const getStatusColor = (status: string) => {
@@ -202,6 +237,9 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
               lastName: '',
               email: '',
               phone: '',
+              employeeCode: '',
+              dateOfBirth: '',
+              gender: '',
               position: '',
               department: '',
               salary: '',
@@ -420,6 +458,56 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                   />
                 </div>
 
+                {/* Employee Code */}
+                <div className="space-y-2">
+                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
+                    Employee Code
+                    <span className="!text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.employeeCode}
+                    onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
+                    placeholder="e.g. EMP001"
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                  />
+                </div>
+
+                {/* Date of Birth */}
+                <div className="space-y-2">
+                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
+                    Date of Birth
+                    <span className="!text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300"
+                  />
+                </div>
+
+                {/* Gender */}
+                <div className="space-y-2">
+                  <label className="block !text-gray-900 font-medium flex items-center gap-2">
+                    Gender
+                    <span className="!text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
                 {/* Position */}
                 <div className="space-y-2">
                   <label className="block !text-gray-900 font-medium flex items-center gap-2">
@@ -449,9 +537,15 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all hover:border-gray-300 bg-white"
                   >
                     <option value="">Select Department</option>
-                    <option value="Sales Operations (Phase-4)">Sales Operations (Phase-4)</option>
-                    <option value="Sales Operations">Sales Operations</option>
-                    <option value="Tech Department">Tech Department</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="HR">HR</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Operations">Operations</option>
+                    <option value="IT">IT</option>
+                    <option value="Customer Support">Customer Support</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 
