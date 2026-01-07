@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Calendar, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import { attendanceAPI, employeeAPI } from '../services/api';
 
 interface Employee {
-  id: number;
+  id: number | string;
   _id?: string; // MongoDB ObjectId
   name: string;
   position: string;
@@ -11,7 +12,7 @@ interface Employee {
 }
 
 interface AttendanceRecord {
-  employeeId: number;
+  employeeId: number | string;
   date: string;
   status: 'Present' | 'Absent' | 'Late' | 'Leave';
   checkIn?: string;
@@ -32,34 +33,72 @@ export function AttendanceTracking({
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState(false);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  const normalizeId = (value?: string | number) => String(value ?? '');
+
+  const formatTime = (value?: string | Date | null) => {
+    if (!value) return undefined;
+    return new Date(value).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const mapBackendRecord = (record: any): AttendanceRecord => ({
+    employeeId: normalizeId(record?.employee?._id || record?.employee),
+    // Use local date to avoid UTC-day shifts (e.g., timezone offsets)
+    date: record?.date ? new Date(record.date).toLocaleDateString('en-CA') : selectedDate,
+    status: record?.status === 'On Leave' ? 'Leave' : record?.status,
+    // Prefer formatted times; fall back to raw strings if already formatted upstream
+    checkIn: record?.checkIn ? formatTime(record.checkIn) || record.checkIn : undefined,
+    checkOut: record?.checkOut ? formatTime(record.checkOut) || record.checkOut : undefined,
+  });
 
   // Load attendance records from backend
   const loadAttendance = async () => {
     try {
       setLoading(true);
-      const startOfMonth = selectedDate.substring(0, 8) + '01';
-      const endOfMonth = new Date(selectedDate.substring(0, 7) + '-01');
-      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-      endOfMonth.setDate(0);
-      const endDateStr = endOfMonth.toISOString().split('T')[0];
+      // For daily view, fetch a ±1 day window to avoid UTC/day boundary gaps; monthly fetches the full month
+      const { startDate, endDate } = (() => {
+        if (viewMode === 'daily') {
+          const start = new Date(selectedDate);
+          start.setDate(start.getDate() - 1);
+          const end = new Date(selectedDate);
+          end.setDate(end.getDate() + 1);
+          return {
+            startDate: start.toISOString().split('T')[0],
+            endDate: end.toISOString().split('T')[0],
+          };
+        }
+        const start = selectedDate.substring(0, 8) + '01';
+        const endOfMonth = new Date(selectedDate.substring(0, 7) + '-01');
+        endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+        endOfMonth.setDate(0);
+        return {
+          startDate: start,
+          endDate: endOfMonth.toISOString().split('T')[0],
+        };
+      })();
 
-      const response = await attendanceAPI.getAll(1, 1000, {
-        startDate: startOfMonth,
-        endDate: endDateStr
+      console.log('[AT-LOAD] Fetching attendance from', startDate, 'to', endDate, 'mode:', viewMode);
+
+      const response: any = await attendanceAPI.getAll(1, 1000, {
+        startDate,
+        endDate
       });
 
       // Map backend data to frontend format
-      const mappedRecords = response.data.map((record: any) => ({
-        employeeId: record.employee._id,
-        date: record.date.split('T')[0],
-        status: record.status === 'On Leave' ? 'Leave' : record.status,
-        checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
-        checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
-      }));
+      const records = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+      console.log('[AT-LOAD] Raw records:', records);
+      
+      const mappedRecords = records.map(mapBackendRecord);
+      console.log('[AT-LOAD] Mapped records:', mappedRecords);
 
       setAttendanceRecords(mappedRecords);
     } catch (error) {
-      console.error('Failed to load attendance:', error);
+      console.error('[AT-LOAD] Failed to load attendance:', error);
     } finally {
       setLoading(false);
     }
@@ -68,7 +107,7 @@ export function AttendanceTracking({
   // Load attendance on mount and when date changes
   useEffect(() => {
     loadAttendance();
-  }, [selectedDate]);
+  }, [selectedDate, viewMode]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -98,81 +137,94 @@ export function AttendanceTracking({
     }
   };
 
-  const toggleAttendance = async (employeeId: number, status: AttendanceRecord['status']) => {
+  const toggleAttendance = async (employeeId: string | number, status: AttendanceRecord['status']) => {
+    const employeeKey = normalizeId(employeeId);
+    setPendingIds(prev => {
+      const next = new Set(prev);
+      next.add(employeeKey);
+      return next;
+    });
+
     try {
+      console.log('[AT-MARK] Starting mark for employee', employeeKey, 'status', status);
+      
       const existingIndex = attendanceRecords.findIndex(
-        r => r.employeeId === employeeId && r.date === selectedDate
+        r => normalizeId(r.employeeId) === employeeKey && r.date === selectedDate
       );
 
-      const now = new Date();
-      const dateTime = new Date(selectedDate);
-      
-      // Set check-in time
-      let checkInTime = null;
-      let checkOutTime = null;
-      
-      if (status === 'Present' || status === 'Late') {
-        checkInTime = new Date(dateTime.setHours(9, 0, 0, 0));
-        if (status === 'Present') {
-          checkOutTime = new Date(dateTime.setHours(17, 0, 0, 0));
-        }
+      const employee = employees.find(
+        e => normalizeId(e.id) === employeeKey || normalizeId(e._id) === employeeKey
+      );
+
+      if (!employee) {
+        throw new Error('Employee not found. Please refresh employees.');
       }
 
+      console.log('[AT-MARK] Found employee:', employee);
+
+      const checkInTime = status === 'Present' || status === 'Late'
+        ? new Date(`${selectedDate}T09:00:00`)
+        : null;
+      const checkOutTime = status === 'Present'
+        ? new Date(`${selectedDate}T17:00:00`)
+        : null;
+
       const attendanceData = {
-        employee: employees.find(e => e.id === employeeId)?._id || employeeId,
+        employee: employee._id || employee.id,
         date: selectedDate,
         status: status === 'Leave' ? 'On Leave' : status,
         checkIn: checkInTime,
         checkOut: checkOutTime,
       };
 
-      if (existingIndex >= 0) {
-        // Update existing record in backend
-        const existingRecord = attendanceRecords[existingIndex];
-        // Note: Need to find the _id from backend for update
-        // For now, delete and recreate
-        await attendanceAPI.create(attendanceData);
-        
-        const updated = [...attendanceRecords];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          status,
-          checkIn: status === 'Present' || status === 'Late' ? '09:00 AM' : undefined,
-          checkOut: status === 'Present' ? '05:00 PM' : undefined,
-        };
-        setAttendanceRecords(updated);
-      } else {
-        // Create new record in backend
-        await attendanceAPI.create(attendanceData);
-        
-        setAttendanceRecords([
-          ...attendanceRecords,
-          {
-            employeeId,
-            date: selectedDate,
-            status,
-            checkIn: status === 'Present' || status === 'Late' ? '09:00 AM' : undefined,
-            checkOut: status === 'Present' ? '05:00 PM' : undefined,
-          },
-        ]);
-      }
+      console.log('[AT-MARK] Sending to API:', attendanceData);
 
-      // Reload to sync with backend
-      await loadAttendance();
+      const response = await attendanceAPI.create(attendanceData);
+      
+      const saved = (response as any)?.data || response;
+      const mapped = mapBackendRecord(saved);
+      console.log('[AT-MARK] Mapped record:', mapped);
+
+      setAttendanceRecords((prev: AttendanceRecord[]) => {
+        if (existingIndex >= 0) {
+          const copy = [...prev];
+          copy[existingIndex] = mapped;
+          console.log('[AT-MARK] Updated existing record at index', existingIndex);
+          return copy;
+        }
+        console.log('[AT-MARK] Adding new record');
+        return [...prev, mapped];
+      });
+
+      toast.success(`${employee.name} marked as ${status}`);
+
+      // Reload to sync with backend and ensure aggregation stats stay current
+      console.log('[AT-MARK] Reloading data from backend...');
+      setTimeout(() => {
+        loadAttendance();
+      }, 800);
     } catch (error: any) {
-      console.error('Failed to mark attendance:', error);
-      alert(error.message || 'Failed to mark attendance');
+      console.error('[AT-MARK] Failed to mark attendance:', error);
+      toast.error(error.message || 'Failed to mark attendance');
+    } finally {
+      setPendingIds(prev => {
+        const next = new Set(prev);
+        next.delete(employeeKey);
+        return next;
+      });
     }
   };
 
-  const getAttendanceForDate = (employeeId: number, date: string) => {
-    return attendanceRecords.find(r => r.employeeId === employeeId && r.date === date);
+  const getAttendanceForDate = (employeeId: string | number, date: string) => {
+    const employeeKey = normalizeId(employeeId);
+    return attendanceRecords.find(r => normalizeId(r.employeeId) === employeeKey && r.date === date);
   };
 
-  const calculateMonthlyStats = (employeeId: number) => {
+  const calculateMonthlyStats = (employeeId: string | number) => {
+    const employeeKey = normalizeId(employeeId);
     const currentMonth = selectedDate.substring(0, 7);
     const monthRecords = attendanceRecords.filter(
-      r => r.employeeId === employeeId && r.date.startsWith(currentMonth)
+      r => normalizeId(r.employeeId) === employeeKey && r.date.startsWith(currentMonth)
     );
 
     const present = monthRecords.filter(r => r.status === 'Present').length;
@@ -194,6 +246,102 @@ export function AttendanceTracking({
   };
 
   const stats = getDailyStats();
+
+  const handleExportReport = () => {
+    try {
+      // Prepare data for export
+      const exportData: any[] = [];
+
+      if (viewMode === 'daily') {
+        // Daily export
+        exportData.push(['Attendance Report - Daily']);
+        exportData.push(['Date: ' + new Date(selectedDate).toLocaleDateString()]);
+        exportData.push([]);
+        exportData.push(['Employee', 'Position', 'Department', 'Status', 'Check-In', 'Check-Out']);
+
+        employees.forEach(emp => {
+          const record = getAttendanceForDate(emp.id, selectedDate);
+          exportData.push([
+            emp.name,
+            emp.position,
+            emp.department,
+            record?.status || 'No Record',
+            record?.checkIn || '-',
+            record?.checkOut || '-',
+          ]);
+        });
+
+        exportData.push([]);
+        exportData.push(['Summary']);
+        exportData.push(['Present', stats.present]);
+        exportData.push(['Absent', stats.absent]);
+        exportData.push(['Late', stats.late]);
+        exportData.push(['On Leave', stats.leave]);
+      } else {
+        // Monthly export
+        exportData.push(['Attendance Report - Monthly']);
+        exportData.push(['Month: ' + selectedDate.substring(0, 7)]);
+        exportData.push([]);
+
+        // Create header row with dates
+        const monthStart = new Date(selectedDate.substring(0, 7) + '-01');
+        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+        const daysInMonth = monthEnd.getDate();
+
+        const header = ['Employee', 'Position', 'Department'];
+        for (let i = 1; i <= daysInMonth; i++) {
+          header.push(i.toString());
+        }
+        header.push('Total Present', 'Total Absent', 'Total Late', 'Total Leave');
+        exportData.push(header);
+
+        // Add employee data
+        employees.forEach(emp => {
+          const row: (string | number)[] = [emp.name, emp.position, emp.department];
+          const monthStats = calculateMonthlyStats(emp.id);
+
+          for (let i = 1; i <= daysInMonth; i++) {
+            const dateStr = selectedDate.substring(0, 8) + (i < 10 ? '0' : '') + i;
+            const record = getAttendanceForDate(emp.id, dateStr);
+            row.push(record?.status?.charAt(0) || '-'); // First letter of status
+          }
+
+          row.push(monthStats.present, monthStats.absent, monthStats.late, monthStats.leave);
+          exportData.push(row);
+        });
+      }
+
+      // Create CSV content
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      exportData.forEach(row => {
+        csvContent += row.map((cell: any) => {
+          // Escape quotes and wrap in quotes if contains comma or quotes
+          if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+            return '"' + cell.replace(/"/g, '""') + '"';
+          }
+          return cell;
+        }).join(',') + '\n';
+      });
+
+      // Create download link
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      
+      // Create filename with date
+      const dateStr = viewMode === 'daily' ? selectedDate : selectedDate.substring(0, 7);
+      link.setAttribute('download', `attendance_${viewMode}_${dateStr}.csv`);
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Attendance report exported successfully`);
+    } catch (error) {
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export report');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -242,7 +390,10 @@ export function AttendanceTracking({
               </div>
             </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+          <button 
+            onClick={handleExportReport}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
             <Download className="w-4 h-4" />
             Export Report
           </button>
@@ -312,6 +463,7 @@ export function AttendanceTracking({
             <tbody className="divide-y divide-gray-200">
               {employees.map((employee) => {
                 const attendance = getAttendanceForDate(employee.id, selectedDate);
+                const isPending = pendingIds.has(normalizeId(employee.id));
                 const monthlyStats = calculateMonthlyStats(employee.id);
                 const attendanceRate = monthlyStats.total > 0
                   ? ((monthlyStats.present + monthlyStats.late) / monthlyStats.total * 100).toFixed(1)
@@ -331,9 +483,12 @@ export function AttendanceTracking({
                       <>
                         <td className="px-6 py-4">
                           {attendance ? (
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border ${getStatusColor(attendance.status)}`}>
+                            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getStatusColor(attendance.status)}`}>
                               {getStatusIcon(attendance.status)}
-                              {attendance.status}
+                              <span>{attendance.status}</span>
+                              {attendance.checkIn && (
+                                <span className="opacity-75">• {attendance.checkIn}</span>
+                              )}
                             </span>
                           ) : (
                             <span className="text-gray-400">Not marked</span>
@@ -349,25 +504,45 @@ export function AttendanceTracking({
                           <div className="flex gap-2">
                             <button
                               onClick={() => toggleAttendance(employee.id, 'Present')}
-                              className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                              disabled={!!attendance || isPending}
+                              className={`px-3 py-1 rounded transition-colors ${
+                                attendance || isPending
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              }`}
                             >
                               Present
                             </button>
                             <button
                               onClick={() => toggleAttendance(employee.id, 'Absent')}
-                              className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                              disabled={!!attendance || isPending}
+                              className={`px-3 py-1 rounded transition-colors ${
+                                attendance || isPending
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
                             >
                               Absent
                             </button>
                             <button
                               onClick={() => toggleAttendance(employee.id, 'Late')}
-                              className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition-colors"
+                              disabled={!!attendance || isPending}
+                              className={`px-3 py-1 rounded transition-colors ${
+                                attendance || isPending
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                  : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                              }`}
                             >
                               Late
                             </button>
                             <button
                               onClick={() => toggleAttendance(employee.id, 'Leave')}
-                              className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                              disabled={!!attendance || isPending}
+                              className={`px-3 py-1 rounded transition-colors ${
+                                attendance || isPending
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              }`}
                             >
                               Leave
                             </button>

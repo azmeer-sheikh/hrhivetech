@@ -705,25 +705,24 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                   </div>
                 </div>
               </div>
-            </form>
 
-            {/* Footer */}
-            <div className="px-8 py-5 bg-gray-50 border-t border-gray-200 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                onClick={handleSubmit}
-                className="flex-1 px-6 py-3.5 bg-blue-600 !text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30 font-medium"
-              >
-                {editingEmployee ? 'Update Employee' : 'Add Employee'}
-              </button>
-            </div>
+              {/* Footer */}
+              <div className="px-8 py-5 bg-gray-50 border-t border-gray-200 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3.5 bg-blue-600 !text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30 font-medium"
+                >
+                  {editingEmployee ? 'Update Employee' : 'Add Employee'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

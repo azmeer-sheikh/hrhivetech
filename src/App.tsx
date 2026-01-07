@@ -22,7 +22,7 @@ import { employeeAPI } from './services/api';
 
 // Types
 interface Employee {
-  id: number;
+  id: number | string;
   _id?: string; // MongoDB ObjectId
   name: string;
   email: string;
@@ -51,7 +51,7 @@ interface PerformanceRecord {
 }
 
 interface AttendanceRecord {
-  employeeId: number;
+  employeeId: number | string;
   date: string;
   status: 'Present' | 'Absent' | 'Late' | 'Leave';
   checkIn?: string;
@@ -341,7 +341,6 @@ function MainApp() {
         
         {/* Content Area */}
         <main className="flex-1 p-8">
-          <Toaster />
           {renderContent()}
         </main>
       </div>

@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Coffee, Search, Calendar as CalendarIcon, Users, Lock, Eye, EyeOff, Download, Filter, TrendingUp } from 'lucide-react';
 import { Pagination } from './Pagination';
 import { attendanceAPI } from '../services/api';
+import { toast } from 'sonner';
+import { useAuth } from './AuthContext';
 
 interface Employee {
-  id: number;
+  id: number | string;
   _id?: string; // MongoDB ObjectId
   name: string;
   position: string;
@@ -12,7 +14,7 @@ interface Employee {
 }
 
 interface AttendanceRecord {
-  employeeId: number;
+  employeeId: number | string;
   date: string;
   status: 'Present' | 'Absent' | 'Late' | 'Leave';
   checkIn?: string;
@@ -29,11 +31,12 @@ interface DailyAttendanceProps {
 const ATTENDANCE_PASSWORD = 'hivetech2024';
 
 export function DailyAttendance({ employees, attendanceRecords, setAttendanceRecords }: DailyAttendanceProps) {
+  const { isAuthenticated } = useAuth();
   const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState<string>(today);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'marked' | 'unmarked'>('all');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -41,165 +44,256 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9; // 3x3 grid
   const [loading, setLoading] = useState(false);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [isPasswordAuthenticated, setIsPasswordAuthenticated] = useState(false);
 
   const getCurrentTime = () => {
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
+  const normalizeId = (value?: string | number) => String(value ?? '');
+
+  const formatTime = (value?: string | Date | null) => {
+    if (!value) return undefined;
+    return new Date(value).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const mapBackendRecord = (record: any): AttendanceRecord => ({
+    employeeId: normalizeId(record?.employee?._id || record?.employee),
+    date: record?.date ? String(record.date).split('T')[0] : selectedDate,
+    status: record?.status === 'On Leave' ? 'Leave' : record?.status,
+    checkIn: formatTime(record?.checkIn),
+    checkOut: formatTime(record?.checkOut),
+    markedAt: record?.createdAt,
+  });
+
   // Load attendance from backend
-  const loadAttendance = async () => {
+  const loadAttendance = async (dateToLoad?: string) => {
     try {
       setLoading(true);
+      const dateForQuery = dateToLoad || selectedDate;
+      console.log('[LOAD] Fetching attendance for date:', dateForQuery);
+      
       const response = await attendanceAPI.getAll(1, 1000, {
-        startDate: today,
-        endDate: today
+        startDate: dateForQuery,
+        endDate: dateForQuery
       });
 
-      // Map backend data to frontend format
-      const mappedRecords = response.data.map((record: any) => ({
-        employeeId: record.employee._id,
-        date: record.date.split('T')[0],
-        status: record.status === 'On Leave' ? 'Leave' : record.status,
-        checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
-        checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : undefined,
-        markedAt: record.createdAt,
-      }));
+      console.log('[LOAD] Raw attendance response:', response);
 
-      setAttendanceRecords(mappedRecords);
+      // Map backend data to frontend format
+      const data = response?.data || response || [];
+      const mappedRecords = (Array.isArray(data) ? data : []).map(mapBackendRecord);
+
+      console.log('[LOAD] Mapped attendance records:', mappedRecords);
+      // Replace only this date's records to keep other dates intact
+      setAttendanceRecords(prev => {
+        const filtered = prev.filter(r => r.date !== dateForQuery);
+        return [...filtered, ...mappedRecords];
+      });
+      
+      console.log('[LOAD] State updated successfully');
     } catch (error) {
-      console.error('Failed to load attendance:', error);
+      console.error('[LOAD] Failed to load attendance:', error);
+      // Don't show error toast to avoid spam
     } finally {
       setLoading(false);
     }
   };
 
-  // Load attendance on mount
+  // Load attendance on mount and when date/auth changes
   useEffect(() => {
-    if (isAuthenticated) {
-      loadAttendance();
+    if (isAuthenticated && isPasswordAuthenticated) {
+      console.log('Loading attendance data for:', selectedDate);
+      loadAttendance(selectedDate).finally(() => {
+        // Clear pending IDs after any load (success or error)
+        setPendingIds(new Set());
+      });
     }
-  }, [isAuthenticated, today]);
+  }, [isAuthenticated, isPasswordAuthenticated, selectedDate]);
 
-  // Auto-mark absent at 9 PM
-  useEffect(() => {
-    const checkAndMarkAbsent = () => {
-      const now = new Date();
-      const currentHour = now.getHours();
-      
-      // Check if it's 9 PM (21:00)
-      if (currentHour === 21) {
-        const unmarkedEmployees = employees.filter(emp => 
-          !attendanceRecords.some(r => r.employeeId === emp.id && r.date === today)
-        );
-
-        if (unmarkedEmployees.length > 0) {
-          const absentRecords = unmarkedEmployees.map(emp => ({
-            employeeId: emp.id,
-            date: today,
-            status: 'Absent' as const,
-            markedAt: new Date().toISOString(),
-          }));
-
-          setAttendanceRecords([...attendanceRecords, ...absentRecords]);
-        }
-      }
-    };
-
-    // Check every minute
-    const interval = setInterval(checkAndMarkAbsent, 60000);
-    checkAndMarkAbsent(); // Check immediately
-
-    return () => clearInterval(interval);
-  }, [employees, attendanceRecords, today, setAttendanceRecords]);
+  // Auto-absent notice only (do not auto-lock records on frontend)
+  // Previously this auto-marked unmarked employees as Absent at 9 PM,
+  // which caused records to lock without user action. We now avoid
+  // mutating state here and leave any auto-processing to the backend.
+  // If needed later, we can show a warning banner or trigger a refresh.
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ATTENDANCE_PASSWORD) {
-      setIsAuthenticated(true);
+      setIsPasswordAuthenticated(true);
       setPasswordError('');
+      // Load attendance data after password authentication
+      setTimeout(() => loadAttendance(selectedDate), 100);
     } else {
       setPasswordError('Incorrect password. Please try again.');
       setPassword('');
     }
   };
 
-  const markAttendance = async (employeeId: number, status: AttendanceRecord['status']) => {
-    const existingRecord = attendanceRecords.find(
-      r => r.employeeId === employeeId && r.date === today
-    );
+  const markAttendance = async (employeeId: number | string, status: AttendanceRecord['status']) => {
+    const employeeKey = normalizeId(employeeId);
 
-    // Check if already marked today
-    if (existingRecord) {
-      alert('Attendance already marked for today. Cannot change once marked.');
-      return;
-    }
-
+    // Mark as pending IMMEDIATELY before any async work
+    setPendingIds(prev => new Set(prev).add(employeeKey));
+    
     try {
       const now = new Date();
-      const dateTime = new Date(today);
       
+      // Find the employee
+      const employee = employees.find(
+        e => normalizeId(e.id) === employeeKey || normalizeId(e._id) === employeeKey
+      );
+      
+      if (!employee) {
+        toast.error('Employee not found');
+        setPendingIds(prev => {
+          const next = new Set(prev);
+          next.delete(employeeKey);
+          return next;
+        });
+        return;
+      }
+
       // Set check-in time based on status
       let checkInTime = null;
-      let checkOutTime = null;
       
       if (status === 'Present' || status === 'Late') {
         checkInTime = now;
       }
 
+      // Use _id if available, otherwise use id (for mock data compatibility)
+      const employeeIdForBackend = employee._id || employee.id;
+      
+      if (!employeeIdForBackend) {
+        console.error('Employee has no valid ID:', employee);
+        toast.error('Invalid employee ID');
+        setPendingIds(prev => {
+          const next = new Set(prev);
+          next.delete(employeeKey);
+          return next;
+        });
+        return;
+      }
+
       const attendanceData = {
-        employee: employees.find(e => e.id === employeeId)?._id || employeeId,
-        date: today,
+        employee: employeeIdForBackend,
+        date: selectedDate,
         status: status === 'Leave' ? 'On Leave' : status,
         checkIn: checkInTime,
-        checkOut: checkOutTime,
+        checkOut: null,
       };
+      
+      console.log('[MARK] Employee found:', employee.name);
+      console.log('[MARK] Employee ID for backend:', employeeIdForBackend);
+      console.log('[MARK] Sending attendance data:', attendanceData);
+
+      // Show loading toast
+      const toastId = toast.loading(`Marking ${employee.name} as ${status}...`);
 
       // Create in backend
-      await attendanceAPI.create(attendanceData);
+      const response = await attendanceAPI.create(attendanceData);
+      
+      console.log('[MARK] Attendance API response:', response);
 
+      // Update local state with the response data
+      const employeeRecordId = normalizeId(employee._id || employee.id);
       const newRecord: AttendanceRecord = {
-        employeeId,
-        date: today,
+        employeeId: employeeRecordId,
+        date: selectedDate,
         status,
         checkIn: status === 'Present' || status === 'Late' ? getCurrentTime() : undefined,
         checkOut: undefined,
         markedAt: new Date().toISOString(),
       };
 
-      setAttendanceRecords([...attendanceRecords, newRecord]);
+      // Upsert parent state (App.tsx) with new record - buttons stay disabled until reload
+      setAttendanceRecords(prev => {
+        const filtered = prev.filter(r => !(r.date === selectedDate && normalizeId(r.employeeId) === employeeKey));
+        return [...filtered, newRecord];
+      });
       
-      // Reload to sync with backend
-      await loadAttendance();
+      // Dismiss loading toast
+      toast.dismiss(toastId);
+      toast.success(`${employee.name} marked as ${status}`);
+      
+      console.log('[MARK] Attendance marked locally:', newRecord);
+      
+      // Reload from backend after delay to ensure data is persisted
+      setTimeout(async () => {
+        console.log('[MARK] Reloading attendance data from backend after mark...');
+        try {
+          await loadAttendance(selectedDate);
+          console.log('[MARK] Reload successful, clearing pending state');
+          // Clear pending AFTER reload confirms data
+          setPendingIds(prev => {
+            const next = new Set(prev);
+            next.delete(employeeKey);
+            return next;
+          });
+        } catch (reloadError) {
+          console.error('[MARK] Reload failed:', reloadError);
+          // Clear pending on error too
+          setPendingIds(prev => {
+            const next = new Set(prev);
+            next.delete(employeeKey);
+            return next;
+          });
+        }
+      }, 1000);
     } catch (error: any) {
       console.error('Failed to mark attendance:', error);
-      alert(error.message || 'Failed to mark attendance');
+      toast.error(error.message || 'Failed to mark attendance. Please try again.');
+      // Clear pending on error so user can retry
+      setPendingIds(prev => {
+        const next = new Set(prev);
+        next.delete(employeeKey);
+        return next;
+      });
     }
+    // NOTE: Do NOT clear pending here - let the reload response clear it
+    // This keeps button disabled until data is confirmed from backend
   };
 
   const markAllPresent = async () => {
-    if (!confirm('Mark all unmarked employees as Present?')) return;
+    if (!confirm('Mark all unmarked employees as Present for ' + selectedDate + '?')) return;
     
     const unmarkedEmployees = employees.filter(emp => 
-      !attendanceRecords.some(r => r.employeeId === emp.id && r.date === today)
+      !attendanceRecords.some(r => String(r.employeeId) === String(emp.id) && r.date === selectedDate)
     );
+
+    if (unmarkedEmployees.length === 0) {
+      toast.info('All employees are already marked');
+      return;
+    }
 
     try {
       const now = new Date();
+      let successCount = 0;
       
       // Create records in backend
       for (const emp of unmarkedEmployees) {
-        await attendanceAPI.create({
-          employee: emp._id || emp.id,
-          date: today,
-          status: 'Present',
-          checkIn: now,
-          checkOut: null,
-        });
+        try {
+          await attendanceAPI.create({
+            employee: emp._id || emp.id,
+            date: selectedDate,
+            status: 'Present',
+            checkIn: now,
+            checkOut: null,
+          });
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to mark ${emp.name}:`, err);
+        }
       }
 
       const newRecords = unmarkedEmployees.map(emp => ({
-        employeeId: emp.id,
-        date: today,
+        employeeId: String(emp.id),
+        date: selectedDate,
         status: 'Present' as const,
         checkIn: getCurrentTime(),
         checkOut: undefined,
@@ -208,56 +302,72 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
 
       setAttendanceRecords([...attendanceRecords, ...newRecords]);
       
+      toast.success(`Marked ${successCount} employees as Present`);
+      
       // Reload to sync with backend
-      await loadAttendance();
+      await loadAttendance(selectedDate);
     } catch (error: any) {
       console.error('Failed to mark all present:', error);
-      alert(error.message || 'Failed to mark all present');
+      toast.error(error.message || 'Failed to mark all present');
     }
   };
 
   const markAllAbsent = async () => {
-    if (!confirm('Mark all unmarked employees as Absent?')) return;
+    if (!confirm('Mark all unmarked employees as Absent for ' + selectedDate + '?')) return;
     
     const unmarkedEmployees = employees.filter(emp => 
-      !attendanceRecords.some(r => r.employeeId === emp.id && r.date === today)
+      !attendanceRecords.some(r => String(r.employeeId) === String(emp.id) && r.date === selectedDate)
     );
 
+    if (unmarkedEmployees.length === 0) {
+      toast.info('All employees are already marked');
+      return;
+    }
+
     try {
+      let successCount = 0;
+      
       // Create records in backend
       for (const emp of unmarkedEmployees) {
-        await attendanceAPI.create({
-          employee: emp._id || emp.id,
-          date: today,
-          status: 'Absent',
-          checkIn: null,
-          checkOut: null,
-        });
+        try {
+          await attendanceAPI.create({
+            employee: emp._id || emp.id,
+            date: selectedDate,
+            status: 'Absent',
+            checkIn: null,
+            checkOut: null,
+          });
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to mark ${emp.name}:`, err);
+        }
       }
 
       const newRecords = unmarkedEmployees.map(emp => ({
-        employeeId: emp.id,
-        date: today,
+        employeeId: String(emp.id),
+        date: selectedDate,
         status: 'Absent' as const,
         markedAt: new Date().toISOString(),
       }));
 
       setAttendanceRecords([...attendanceRecords, ...newRecords]);
       
+      toast.success(`Marked ${successCount} employees as Absent`);
+      
       // Reload to sync with backend
-      await loadAttendance();
+      await loadAttendance(selectedDate);
     } catch (error: any) {
       console.error('Failed to mark all absent:', error);
-      alert(error.message || 'Failed to mark all absent');
+      toast.error(error.message || 'Failed to mark all absent');
     }
   };
 
   const exportToCSV = () => {
-    const todayRecords = attendanceRecords.filter(r => r.date === today);
+    const selectedDateRecords = attendanceRecords.filter(r => r.date === selectedDate);
     const csvData = [
       ['Name', 'Department', 'Position', 'Status', 'Check In', 'Marked At'],
-      ...todayRecords.map(record => {
-        const emp = employees.find(e => e.id === record.employeeId);
+      ...selectedDateRecords.map(record => {
+        const emp = employees.find(e => String(e.id) === String(record.employeeId) || String(e._id) === String(record.employeeId));
         return [
           emp?.name || '',
           emp?.department || '',
@@ -274,12 +384,17 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `attendance-${today}.csv`;
+    a.download = `attendance-${selectedDate}.csv`;
     a.click();
   };
 
-  const getTodayAttendance = (employeeId: number) => {
-    return attendanceRecords.find(r => r.employeeId === employeeId && r.date === today);
+  const getTodayAttendance = (employeeId: number | string) => {
+    // Check attendance by numeric id, _id, or string comparison
+    return attendanceRecords.find(r => {
+      const rEmpId = normalizeId(r.employeeId);
+      const numId = normalizeId(employeeId);
+      return rEmpId === numId && r.date === selectedDate;
+    });
   };
 
   const departments = ['all', ...new Set(employees.map(e => e.department))];
@@ -312,17 +427,17 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
 
   const todayStats = {
     total: employees.length,
-    present: attendanceRecords.filter(r => r.date === today && r.status === 'Present').length,
-    late: attendanceRecords.filter(r => r.date === today && r.status === 'Late').length,
-    absent: attendanceRecords.filter(r => r.date === today && r.status === 'Absent').length,
-    leave: attendanceRecords.filter(r => r.date === today && r.status === 'Leave').length,
-    unmarked: employees.length - attendanceRecords.filter(r => r.date === today).length,
+    present: attendanceRecords.filter(r => r.date === selectedDate && r.status === 'Present').length,
+    late: attendanceRecords.filter(r => r.date === selectedDate && r.status === 'Late').length,
+    absent: attendanceRecords.filter(r => r.date === selectedDate && r.status === 'Absent').length,
+    leave: attendanceRecords.filter(r => r.date === selectedDate && r.status === 'Leave').length,
+    unmarked: employees.length - attendanceRecords.filter(r => r.date === selectedDate).length,
   };
 
   const attendanceRate = ((todayStats.present + todayStats.late) / todayStats.total * 100).toFixed(1);
 
   // Password Protection Screen
-  if (!isAuthenticated) {
+  if (!isPasswordAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[600px]">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-10 w-full max-w-md">
@@ -390,7 +505,7 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
             <div>
               <h1 className="!text-gray-900 !mb-1">Daily Attendance</h1>
               <p className="!text-gray-600 !mb-0 text-sm">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
           </div>
@@ -404,7 +519,7 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
               Export CSV
             </button>
             <button
-              onClick={() => setIsAuthenticated(false)}
+              onClick={() => setIsPasswordAuthenticated(false)}
               className="px-4 py-2 bg-gray-100 !text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
             >
               <Lock className="w-4 h-4" />
@@ -417,6 +532,29 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
           <div>
             <p className="text-sm font-medium !text-blue-900 !mb-0">USA Night Shift: 7:00 PM - 4:00 AM PKT • Auto-absent at 9:00 PM</p>
           </div>
+        </div>
+
+        {/* Date Picker */} 
+        <div className="mb-6 flex items-center gap-4">
+          <label className="text-sm font-medium !text-gray-700">Select Date:</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setCurrentPage(1); // Reset pagination when date changes
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+          />
+          <button
+            onClick={() => {
+              setSelectedDate(today);
+              setCurrentPage(1);
+            }}
+            className="px-4 py-2 bg-blue-100 !text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+          >
+            Today
+          </button>
         </div>
 
         {/* Stats Grid */}
@@ -516,34 +654,41 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((employee) => {
           const attendance = getTodayAttendance(employee.id);
-          
+          const isMarked = !!attendance;
+          const isPending = pendingIds.has(normalizeId(employee.id));
+
           return (
-            <div 
-              key={employee.id} 
+            <div
+              key={employee.id}
               className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
             >
-              <div className="p-5">
+              <div className="p-6 space-y-4">
                 {/* Employee Info */}
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center !text-white font-semibold text-sm flex-shrink-0">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold">
                     {employee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="!text-gray-900 !mb-1 truncate">{employee.name}</h4>
                     <p className="text-sm !text-gray-600 !mb-0.5 truncate">{employee.position}</p>
-                    <p className="text-xs !text-gray-500 truncate !mb-0">{employee.department}</p>
+                    <p className="text-xs !text-gray-500 !mb-0 truncate">{employee.department}</p>
                   </div>
                 </div>
 
                 {/* Status Badge */}
                 {attendance ? (
-                  <div className="mb-4">
-                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
-                      attendance.status === 'Present' ? 'bg-emerald-50 !text-emerald-700 border border-emerald-200' :
-                      attendance.status === 'Late' ? 'bg-amber-50 !text-amber-700 border border-amber-200' :
-                      attendance.status === 'Absent' ? 'bg-red-50 !text-red-700 border border-red-200' :
-                      'bg-blue-50 !text-blue-700 border border-blue-200'
-                    }`}>
+                  <div>
+                    <div
+                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                        attendance.status === 'Present'
+                          ? 'bg-emerald-50 !text-emerald-700 border border-emerald-200'
+                          : attendance.status === 'Late'
+                          ? 'bg-amber-50 !text-amber-700 border border-amber-200'
+                          : attendance.status === 'Absent'
+                          ? 'bg-red-50 !text-red-700 border border-red-200'
+                          : 'bg-blue-50 !text-blue-700 border border-blue-200'
+                      }`}
+                    >
                       {attendance.status === 'Present' && <CheckCircle className="w-4 h-4" />}
                       {attendance.status === 'Late' && <Clock className="w-4 h-4" />}
                       {attendance.status === 'Absent' && <XCircle className="w-4 h-4" />}
@@ -553,46 +698,62 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
                         <span className="ml-1 opacity-75">• {attendance.checkIn}</span>
                       )}
                     </div>
-                    <p className="text-xs !text-gray-500 !mt-2 !mb-0">✓ Marked (Locked)</p>
+                    <p className="text-xs !text-gray-500 !mt-2 !mb-0">✓ Marked (tap to update)</p>
                   </div>
                 ) : (
-                  <div className="mb-4">
-                    <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 !text-gray-600 border border-gray-200 text-sm font-medium">
-                      <Clock className="w-4 h-4" />
-                      <span>Not Marked</span>
-                    </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 !text-gray-600 border border-gray-200 text-sm font-medium">
+                    <Clock className="w-4 h-4" />
+                    <span>Not Marked</span>
                   </div>
                 )}
 
                 {/* Action Buttons */}
-                {!attendance && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => markAttendance(employee.id, 'Present')}
-                      className="px-3 py-2.5 bg-emerald-600 !text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
-                    >
-                      Present
-                    </button>
-                    <button
-                      onClick={() => markAttendance(employee.id, 'Absent')}
-                      className="px-3 py-2.5 bg-red-600 !text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                    >
-                      Absent
-                    </button>
-                    <button
-                      onClick={() => markAttendance(employee.id, 'Late')}
-                      className="px-3 py-2.5 bg-amber-600 !text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
-                    >
-                      Late
-                    </button>
-                    <button
-                      onClick={() => markAttendance(employee.id, 'Leave')}
-                      className="px-3 py-2.5 bg-blue-600 !text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Leave
-                    </button>
-                  </div>
-                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => markAttendance(employee.id, 'Present')}
+                    disabled={isPending || !!attendance}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isPending || !!attendance
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-emerald-600 !text-white hover:bg-emerald-700'
+                    }`}
+                  >
+                    Present
+                  </button>
+                  <button
+                    onClick={() => markAttendance(employee.id, 'Absent')}
+                    disabled={isPending || !!attendance}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isPending || !!attendance
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-red-600 !text-white hover:bg-red-700'
+                    }`}
+                  >
+                    Absent
+                  </button>
+                  <button
+                    onClick={() => markAttendance(employee.id, 'Late')}
+                    disabled={isPending || !!attendance}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isPending || !!attendance
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-amber-600 !text-white hover:bg-amber-700'
+                    }`}
+                  >
+                    Late
+                  </button>
+                  <button
+                    onClick={() => markAttendance(employee.id, 'Leave')}
+                    disabled={isPending || !!attendance}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isPending || !!attendance
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 !text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    Leave
+                  </button>
+                </div>
               </div>
             </div>
           );

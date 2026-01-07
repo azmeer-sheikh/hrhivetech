@@ -25,21 +25,12 @@ async function apiCall<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Log request in development
-  if (isDevelopment) {
-    console.log(`📡 API Request: ${options.method || 'GET'} ${url}`);
-  }
 
   try {
     const response = await fetch(url, {
       ...options,
       headers,
     });
-
-    // Log response status
-    if (isDevelopment) {
-      console.log(`📊 API Response: ${response.status} ${response.statusText}`);
-    }
 
     // Handle various HTTP error codes
     if (!response.ok) {
@@ -85,11 +76,6 @@ async function apiCall<T>(
 
     const data = await response.json();
     
-    // Log successful response in development
-    if (isDevelopment) {
-      console.log(`✅ API Success: ${url}`, data);
-    }
-
     return data;
   } catch (error) {
     // Log fetch errors (network, CORS, etc.)

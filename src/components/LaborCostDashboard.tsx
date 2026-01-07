@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 
 interface Employee {
-  id: number;
+  id: number | string;
   name: string;
   position: string;
   department: string;
@@ -16,7 +16,7 @@ interface Employee {
 }
 
 interface AttendanceRecord {
-  employeeId: number;
+  employeeId: number | string;
   date: string;
   status: 'Present' | 'Absent' | 'Late' | 'Leave';
   checkIn?: string;
@@ -29,7 +29,7 @@ interface LaborCostDashboardProps {
 }
 
 interface ActiveEmployee {
-  id: number;
+  id: number | string;
   name: string;
   department: string;
   hourlyRate: number;
@@ -91,7 +91,7 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
                !record.checkOut;
       })
       .map(record => {
-        const employee = employees.find(e => e.id === record.employeeId);
+        const employee = employees.find(e => String(e.id) === String(record.employeeId));
         if (!employee) return null;
 
         const hourlyRate = getHourlyRate(employee);

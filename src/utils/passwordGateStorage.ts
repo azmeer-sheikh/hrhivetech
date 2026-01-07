@@ -17,21 +17,31 @@ interface PasswordUnlock {
 export const isPasswordGateUnlocked = (gateId: string): boolean => {
   try {
     const unlocksJson = localStorage.getItem(PASSWORD_UNLOCK_KEY);
+    console.log('[passwordGateStorage] Checking unlock for:', gateId);
+    console.log('[passwordGateStorage] Raw localStorage value:', unlocksJson);
+    
     if (!unlocksJson) return false;
 
     const unlocks = JSON.parse(unlocksJson) as Record<string, PasswordUnlock>;
     const unlock = unlocks[gateId];
+    console.log('[passwordGateStorage] Unlock data for', gateId, ':', unlock);
 
     if (!unlock) return false;
 
     const currentTime = Date.now();
+    console.log('[passwordGateStorage] Current time:', currentTime);
+    console.log('[passwordGateStorage] Expires at:', unlock.expiresAt);
+    console.log('[passwordGateStorage] Time remaining (hours):', ((unlock.expiresAt - currentTime) / (60 * 60 * 1000)).toFixed(2));
+    
     if (currentTime > unlock.expiresAt) {
       // Unlock has expired, remove it
+      console.log('[passwordGateStorage] Unlock has expired, removing');
       delete unlocks[gateId];
       localStorage.setItem(PASSWORD_UNLOCK_KEY, JSON.stringify(unlocks));
       return false;
     }
 
+    console.log('[passwordGateStorage] Unlock is valid');
     return true;
   } catch (error) {
     console.error('Error checking password unlock status:', error);
@@ -45,6 +55,7 @@ export const isPasswordGateUnlocked = (gateId: string): boolean => {
  */
 export const setPasswordGateUnlocked = (gateId: string): void => {
   try {
+    console.log('[passwordGateStorage] Setting unlock for:', gateId);
     const unlocksJson = localStorage.getItem(PASSWORD_UNLOCK_KEY);
     const unlocks = unlocksJson ? JSON.parse(unlocksJson) : {};
 
@@ -54,7 +65,11 @@ export const setPasswordGateUnlocked = (gateId: string): void => {
       expiresAt: now + UNLOCK_DURATION,
     };
 
+    console.log('[passwordGateStorage] Saving unlock data:', unlocks[gateId]);
+    console.log('[passwordGateStorage] Will expire in 24 hours at:', new Date(unlocks[gateId].expiresAt).toLocaleString());
+    
     localStorage.setItem(PASSWORD_UNLOCK_KEY, JSON.stringify(unlocks));
+    console.log('[passwordGateStorage] Saved to localStorage successfully');
   } catch (error) {
     console.error('Error setting password unlock:', error);
   }

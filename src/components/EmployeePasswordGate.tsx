@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, Shield } from 'lucide-react';
+import { toast } from 'sonner';
 import { isPasswordGateUnlocked, setPasswordGateUnlocked } from '../utils/passwordGateStorage';
 
 interface EmployeePasswordGateProps {
@@ -30,6 +31,9 @@ export function EmployeePasswordGate({ children }: EmployeePasswordGateProps) {
     if (password === EMPLOYEE_PASSWORD) {
       setIsUnlocked(true);
       setPasswordGateUnlocked(GATE_ID);
+      toast.success('Access granted! Password saved for 24 hours', {
+        description: 'You won\'t need to enter it again until tomorrow',
+      });
       setError('');
     } else {
       setError('Incorrect password. Please try again.');

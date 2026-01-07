@@ -221,17 +221,6 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
 
           {/* Bottom Section */}
           <div className="border-t px-4 py-4" style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-            <div className="p-3 bg-white/5 mb-3" style={{ borderRadius: '5px' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-blue-500 flex items-center justify-center text-white font-bold text-sm" style={{ borderRadius: '5px' }}>
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{user?.name || 'User'}</p>
-                  <p className="text-xs text-slate-400 truncate">{user?.role || 'Role'}</p>
-                </div>
-              </div>
-            </div>
             
             <button
               onClick={logout}

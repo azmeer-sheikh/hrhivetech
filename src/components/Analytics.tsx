@@ -2,7 +2,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { TrendingUp, Users, DollarSign, Calendar, BarChart3 } from 'lucide-react';
 
 interface Employee {
-  id: number;
+  id: number | string;
   name: string;
   department: string;
   salary: number;
@@ -11,7 +11,7 @@ interface Employee {
 }
 
 interface AttendanceRecord {
-  employeeId: number;
+  employeeId: number | string;
   date: string;
   status: string;
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, Shield } from 'lucide-react';
+import { toast } from 'sonner';
 import { isPasswordGateUnlocked, setPasswordGateUnlocked } from '../utils/passwordGateStorage';
 
 interface AttendancePasswordGateProps {
@@ -18,8 +19,15 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
 
   // Check if already unlocked on mount
   useEffect(() => {
-    if (isPasswordGateUnlocked(GATE_ID)) {
+    console.log('[AttendancePasswordGate] Checking unlock status for:', GATE_ID);
+    const isUnlocked = isPasswordGateUnlocked(GATE_ID);
+    console.log('[AttendancePasswordGate] Is unlocked:', isUnlocked);
+    
+    if (isUnlocked) {
+      console.log('[AttendancePasswordGate] Auto-unlocking based on localStorage');
       setIsUnlocked(true);
+    } else {
+      console.log('[AttendancePasswordGate] Password required');
     }
     setIsLoading(false);
   }, []);
@@ -28,8 +36,17 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
     e.preventDefault();
     
     if (password === ATTENDANCE_PASSWORD) {
-      setIsUnlocked(true);
+      console.log('[AttendancePasswordGate] Password correct, saving unlock to localStorage');
       setPasswordGateUnlocked(GATE_ID);
+      
+      // Verify it was saved
+      const savedUnlocks = localStorage.getItem('passwordUnlocks');
+      console.log('[AttendancePasswordGate] Saved unlocks:', savedUnlocks);
+      
+      setIsUnlocked(true);
+      toast.success('Access granted! Password saved for 24 hours', {
+        description: 'You won\'t need to enter it again until tomorrow',
+      });
       setError('');
     } else {
       setError('Incorrect password. Please try again.');
