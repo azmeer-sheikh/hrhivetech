@@ -1,6 +1,85 @@
+import { useEffect, useState } from 'react';
 import { Users, UserCheck, Building2, Clock, Calendar, Palmtree, FileText, TrendingUp, Bell, Award } from 'lucide-react';
+import { announcementAPI, holidayAPI } from '../services/api';
 
 export function DashboardOverview() {
+  const todayISO = new Date().toISOString().split('T')[0];
+
+  const [recentActivities, setRecentActivities] = useState<Array<{
+    id: string;
+    title: string;
+    time: string;
+    icon: any;
+    iconBg: string;
+    iconColor: string;
+  }>>([]);
+
+  const [upcomingEvents, setUpcomingEvents] = useState<Array<{
+    id: string;
+    title: string;
+    date: string;
+    type: string;
+    month: string;
+    day: string;
+    bgColor: string;
+    badgeBg: string;
+    badgeText: string;
+  }>>([]);
+
+  useEffect(() => {
+    const loadAnnouncements = async () => {
+      try {
+        const res: any = await announcementAPI.getAll(1, 5);
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const mapped = items.map((item: any) => ({
+          id: item._id || item.id || crypto.randomUUID(),
+          title: item.title || item.subject || 'Announcement',
+          time: item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Recently',
+          icon: Bell,
+          iconBg: 'bg-blue-100',
+          iconColor: 'text-blue-600',
+        }));
+        setRecentActivities(mapped);
+      } catch (err) {
+        console.error('Failed to load announcements:', err);
+        setRecentActivities([]);
+      }
+    };
+
+    const loadHolidays = async () => {
+      try {
+        const res: any = await holidayAPI.getAll();
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const upcoming = items
+          .filter((h: any) => h.date && h.date.split('T')[0] >= todayISO)
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .slice(0, 5)
+          .map((h: any) => {
+            const d = new Date(h.date);
+            const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+            const day = String(d.getDate()).padStart(2, '0');
+            return {
+              id: h._id || h.id || crypto.randomUUID(),
+              title: h.name || h.title || 'Holiday',
+              date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              type: h.type || 'Holiday',
+              month,
+              day,
+              bgColor: 'bg-emerald-500',
+              badgeBg: 'bg-emerald-100',
+              badgeText: 'text-emerald-700',
+            };
+          });
+        setUpcomingEvents(upcoming);
+      } catch (err) {
+        console.error('Failed to load holidays:', err);
+        setUpcomingEvents([]);
+      }
+    };
+
+    loadAnnouncements();
+    loadHolidays();
+  }, [todayISO]);
   const stats = [
     {
       title: 'Total Employees',
@@ -47,46 +126,28 @@ export function DashboardOverview() {
     { title: 'View Reports', icon: TrendingUp, color: 'amber', bg: 'bg-amber-500', border: 'border-amber-200', hover: 'hover:border-amber-300', cardBg: 'bg-amber-50' },
   ];
 
-  const recentActivities = [
-    { id: 1, title: 'Mr. Faaiz Ahmed joined as Dialer', time: '2 days ago', icon: Users, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' },
-    { id: 2, title: 'Leave approved for Ms. Sarah Khan', time: '3 days ago', icon: Palmtree, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' },
-    { id: 3, title: 'New announcement: Holiday Schedule', time: '1 week ago', icon: Bell, iconBg: 'bg-purple-100', iconColor: 'text-purple-600' },
-    { id: 4, title: 'Performance review completed', time: '2 weeks ago', icon: Award, iconBg: 'bg-amber-100', iconColor: 'text-amber-600' },
+  const activityList = recentActivities.length ? recentActivities : [
+    {
+      id: 'placeholder-activity',
+      title: 'No recent activity yet',
+      time: '—',
+      icon: Bell,
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-500',
+    },
   ];
 
-  const upcomingEvents = [
-    { 
-      id: 1, 
-      title: 'Martin Luther King Jr. Day', 
-      date: 'Jan 20, 2025', 
-      type: 'Holiday', 
-      month: 'JAN',
-      day: '20',
-      bgColor: 'bg-emerald-500',
-      badgeBg: 'bg-emerald-100',
-      badgeText: 'text-emerald-700'
-    },
-    { 
-      id: 2, 
-      title: "Presidents' Day", 
-      date: 'Feb 17, 2025', 
-      type: 'Holiday', 
-      month: 'FEB',
-      day: '17',
-      bgColor: 'bg-blue-500',
-      badgeBg: 'bg-blue-100',
-      badgeText: 'text-blue-700'
-    },
-    { 
-      id: 3, 
-      title: 'Memorial Day', 
-      date: 'May 26, 2025', 
-      type: 'Holiday', 
-      month: 'MAY',
-      day: '26',
-      bgColor: 'bg-purple-500',
-      badgeBg: 'bg-purple-100',
-      badgeText: 'text-purple-700'
+  const eventList = upcomingEvents.length ? upcomingEvents : [
+    {
+      id: 'placeholder-event',
+      title: 'No upcoming events yet',
+      date: '—',
+      type: 'Upcoming',
+      month: '--',
+      day: '--',
+      bgColor: 'bg-gray-300',
+      badgeBg: 'bg-gray-100',
+      badgeText: 'text-gray-600',
     },
   ];
 
@@ -150,7 +211,7 @@ export function DashboardOverview() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {recentActivities.map((activity) => {
+              {activityList.map((activity) => {
                 const Icon = activity.icon;
                 return (
                   <div 
@@ -183,7 +244,7 @@ export function DashboardOverview() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {upcomingEvents.map((event) => (
+              {eventList.map((event) => (
                 <div 
                   key={event.id} 
                   className="flex items-center gap-4 p-4 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 cursor-pointer"

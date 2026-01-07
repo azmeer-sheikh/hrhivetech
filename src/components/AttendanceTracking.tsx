@@ -30,7 +30,8 @@ export function AttendanceTracking({
   attendanceRecords, 
   setAttendanceRecords 
 }: AttendanceTrackingProps) {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -360,7 +361,11 @@ export function AttendanceTracking({
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                max={today}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSelectedDate(next > today ? today : next);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>

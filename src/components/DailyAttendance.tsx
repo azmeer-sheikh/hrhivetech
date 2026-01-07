@@ -64,7 +64,8 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
 
   const mapBackendRecord = (record: any): AttendanceRecord => ({
     employeeId: normalizeId(record?.employee?._id || record?.employee),
-    date: record?.date ? String(record.date).split('T')[0] : selectedDate,
+    // Use local date string to avoid UTC day shifts
+    date: record?.date ? new Date(record.date).toLocaleDateString('en-CA') : selectedDate,
     status: record?.status === 'On Leave' ? 'Leave' : record?.status,
     checkIn: formatTime(record?.checkIn),
     checkOut: formatTime(record?.checkOut),
@@ -76,11 +77,21 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
     try {
       setLoading(true);
       const dateForQuery = dateToLoad || selectedDate;
-      console.log('[LOAD] Fetching attendance for date:', dateForQuery);
+
+      // To handle UTC offsets, fetch a small window around the selected date
+      const start = new Date(dateForQuery);
+      start.setDate(start.getDate() - 1);
+      const end = new Date(dateForQuery);
+      end.setDate(end.getDate() + 1);
+
+      const startDate = start.toISOString().split('T')[0];
+      const endDate = end.toISOString().split('T')[0];
+
+      console.log('[LOAD] Fetching attendance from', startDate, 'to', endDate, 'for selected', dateForQuery);
       
       const response = await attendanceAPI.getAll(1, 1000, {
-        startDate: dateForQuery,
-        endDate: dateForQuery
+        startDate,
+        endDate
       });
 
       console.log('[LOAD] Raw attendance response:', response);
@@ -540,8 +551,11 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
           <input
             type="date"
             value={selectedDate}
+            max={today}
             onChange={(e) => {
-              setSelectedDate(e.target.value);
+              const next = e.target.value;
+              const clamped = next > today ? today : next;
+              setSelectedDate(clamped);
               setCurrentPage(1); // Reset pagination when date changes
             }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"

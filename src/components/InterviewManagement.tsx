@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, Clock, User, Mail, Phone, Briefcase, MapPin, Edit2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { interviewAPI } from '../services/api';
 
 interface Interview {
@@ -156,13 +157,10 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
     toast.custom(
       (t) => (
         <div className="bg-white shadow-2xl border border-gray-200 max-w-sm overflow-hidden" style={{ borderRadius: '5px' }}>
-          <div className="px-6 py-4" style={{ background: 'linear-gradient(to right, #ef4444, #dc2626)' }}>
-            <h3 className="text-base font-bold" style={{ color: '#ffffff', margin: 0 }}>Delete Interview</h3>
-          </div>
           
           <div className="p-6">
             <p className="text-gray-800 text-base leading-relaxed mb-6 font-medium">
-              Are you sure you want to delete this interview? This action cannot be undone.
+              Are you sure you want to delete this interview? 
             </p>
             
             <div className="flex gap-3">
