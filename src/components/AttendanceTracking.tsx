@@ -344,6 +344,34 @@ export function AttendanceTracking({
 
   const stats = getDailyStats();
 
+  // Filter and sort employees based on search and filter criteria
+  const filteredAndSortedEmployees = employees.filter(emp => {
+    const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          emp.position.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          emp.department.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDept = departmentFilter === 'All' || emp.department === departmentFilter;
+    
+    if (statusFilter === 'All') {
+      return matchesSearch && matchesDept;
+    }
+    
+    const attendance = getAttendanceForDate(emp.id, selectedDate);
+    const matchesStatus = attendance?.status === statusFilter || (!attendance && statusFilter === 'Not marked');
+    return matchesSearch && matchesDept && matchesStatus;
+  }).sort((a, b) => {
+    if (sortBy === 'name') {
+      return a.name.localeCompare(b.name);
+    } else {
+      return a.department.localeCompare(b.department);
+    }
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSortedEmployees.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEmployees = filteredAndSortedEmployees.slice(startIndex, endIndex);
+
   const handleExportReport = () => {
     try {
       // Prepare data for export
@@ -442,12 +470,6 @@ export function AttendanceTracking({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-gray-900 mb-2">Attendance Tracking</h1>
-        <p className="text-gray-500">Monitor and manage employee attendance</p>
-      </div>
-
       {/* Controls */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -500,6 +522,99 @@ export function AttendanceTracking({
           </button>
         </div>
       </div>
+
+      {/* Filters and Search */}
+      {viewMode === 'daily' && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search by name/position/department */}
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Search</label>
+              <input
+                type="text"
+                placeholder="Name, position, or department..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1); // Reset to first page on filter change
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            {/* Department Filter */}
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Department</label>
+              <select
+                value={departmentFilter}
+                onChange={(e) => {
+                  setDepartmentFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="All">All Departments</option>
+                {[...new Set(employees.map(e => e.department))].map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="All">All Status</option>
+                <option value="Present">Present</option>
+                <option value="Absent">Absent</option>
+                <option value="Late">Late</option>
+                <option value="Leave">Leave</option>
+                <option value="Not marked">Not marked</option>
+              </select>
+            </div>
+
+            {/* Sort By */}
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Sort By</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="name">Name</option>
+                <option value="department">Department</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {(searchQuery || departmentFilter !== 'All' || statusFilter !== 'All') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setDepartmentFilter('All');
+                setStatusFilter('All');
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+            >
+              Clear Filters
+            </button>
+          )}
+
+          {/* Results Counter */}
+          <p className="text-sm text-gray-600">
+            Showing {paginatedEmployees.length} of {filteredAndSortedEmployees.length} employees
+          </p>
+        </div>
+      )}
 
       {/* Stats */}
       {viewMode === 'daily' && (
@@ -562,7 +677,7 @@ export function AttendanceTracking({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {employees.map((employee) => {
+              {paginatedEmployees.map((employee) => {
                 const attendance = getAttendanceForDate(employee.id, selectedDate);
                 const isPending = pendingIds.has(normalizeId(employee.id));
                 const monthlyStats = calculateMonthlyStats(employee.id);
@@ -700,6 +815,77 @@ export function AttendanceTracking({
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {viewMode === 'daily' && filteredAndSortedEmployees.length > itemsPerPage && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Page {currentPage} of {totalPages} • Showing {startIndex + 1}-{Math.min(endIndex, filteredAndSortedEmployees.length)} of {filteredAndSortedEmployees.length}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+
+            {/* Page Numbers */}
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  const diff = Math.abs(page - currentPage);
+                  return diff <= 2 || page === 1 || page === totalPages;
+                })
+                .map((page, index, arr) => {
+                  if (index > 0 && arr[index - 1] !== page - 1) {
+                    return (
+                      <span key={`ellipsis-${page}`} className="px-2 py-2 text-gray-600">
+                        ...
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg transition-colors ${
+                        currentPage === page
+                          ? 'bg-indigo-600 text-white'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Time Selection Modal */}
       {showTimeModal && (

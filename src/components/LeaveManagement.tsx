@@ -55,6 +55,8 @@ export function LeaveManagement({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     loadLeaves();
@@ -129,15 +131,34 @@ export function LeaveManagement({
 
   const fetchBalance = async (employeeId: string | number) => {
     try {
-      const response = await leaveAPI.getBalance(String(employeeId));
-      const data = response?.data || {};
+      // Fetch all approved leaves for this employee to calculate remaining balance
+      const response = await leaveAPI.getAll(1, 500);
+      const allLeaves = Array.isArray(response?.data) ? response.data : [];
+      
+      // Filter approved leaves for this employee
+      const employeeLeaves = allLeaves.filter(leave => {
+        const empId = leave.employee?._id || leave.employee;
+        return String(empId) === String(employeeId) && leave.status === 'Approved';
+      });
 
-      const annual = data['Annual Leave']?.remaining ?? 20;
-      const sick = data['Sick Leave']?.remaining ?? 10;
-      const casual = data['Casual Leave']?.remaining ?? 5;
+      // Calculate total days used by leave type
+      const annualUsed = employeeLeaves
+        .filter(l => l.leaveType === 'Annual Leave')
+        .reduce((sum, l) => sum + (l.numberOfDays || 0), 0);
+      const sickUsed = employeeLeaves
+        .filter(l => l.leaveType === 'Sick Leave')
+        .reduce((sum, l) => sum + (l.numberOfDays || 0), 0);
+      const emergencyUsed = employeeLeaves
+        .filter(l => l.leaveType === 'Emergency Leave')
+        .reduce((sum, l) => sum + (l.numberOfDays || 0), 0);
+
+      // Calculate remaining balance (initial allocation - used)
+      const annual = Math.max(0, 20 - annualUsed);
+      const sick = Math.max(0, 10 - sickUsed);
+      const emergency = Math.max(0, 5 - emergencyUsed);
 
       const updated = leaveBalances.filter(b => String(b.employeeId) !== String(employeeId));
-      updated.push({ employeeId, annual, sick, casual });
+      updated.push({ employeeId, annual, sick, casual: emergency });
       setLeaveBalances(updated);
     } catch (err) {
       console.error('Failed to fetch leave balance', err);
@@ -173,6 +194,8 @@ export function LeaveManagement({
     try {
       await leaveAPI.create(payload);
       await loadLeaves();
+      // Refresh balance after creating leave
+      await fetchBalance(selectedEmployee);
       // Reset form
       setShowAddModal(false);
       setSelectedEmployee('');
@@ -188,8 +211,14 @@ export function LeaveManagement({
   const handleApprove = async (leaveId: string | number | undefined) => {
     if (!leaveId) return;
     try {
+      // Find the leave request to get employee ID
+      const leave = leaveRequests.find(l => String(l._id || l.id) === String(leaveId));
       await leaveAPI.approve(String(leaveId), 'Approved');
       await loadLeaves();
+      // Refresh balance for the employee after approval
+      if (leave && leave.employeeId) {
+        await fetchBalance(leave.employeeId);
+      }
     } catch (err) {
       console.error('Failed to approve leave', err);
     }
@@ -198,8 +227,14 @@ export function LeaveManagement({
   const handleReject = async (leaveId: string | number | undefined) => {
     if (!leaveId) return;
     try {
+      // Find the leave request to get employee ID
+      const leave = leaveRequests.find(l => String(l._id || l.id) === String(leaveId));
       await leaveAPI.reject(String(leaveId), 'Rejected by admin');
       await loadLeaves();
+      // Refresh balance for the employee after rejection
+      if (leave && leave.employeeId) {
+        await fetchBalance(leave.employeeId);
+      }
     } catch (err) {
       console.error('Failed to reject leave', err);
     }
@@ -214,6 +249,12 @@ export function LeaveManagement({
     const matchesStatus = filterStatus === 'all' || req.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
   const stats = {
     pending: leaveRequests.filter(r => r.status === 'Pending').length,
@@ -275,13 +316,19 @@ export function LeaveManagement({
               type="text"
               placeholder="Search by employee name..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent"
             />
           </div>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent min-w-[200px]"
           >
             <option value="all">All Status</option>
@@ -308,7 +355,7 @@ export function LeaveManagement({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredRequests.map((leave) => (
+              {paginatedRequests.map((leave) => (
                 <tr key={leave._id || leave.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div>
@@ -376,6 +423,77 @@ export function LeaveManagement({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {filteredRequests.length > itemsPerPage && (
+          <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages} • Showing {startIndex + 1}-{Math.min(endIndex, filteredRequests.length)} of {filteredRequests.length}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                First
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    const diff = Math.abs(page - currentPage);
+                    return diff <= 2 || page === 1 || page === totalPages;
+                  })
+                  .map((page, index, arr) => {
+                    if (index > 0 && arr[index - 1] !== page - 1) {
+                      return (
+                        <span key={`ellipsis-${page}`} className="px-2 py-2 text-gray-600">
+                          ...
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          currentPage === page
+                            ? 'bg-gray-800 text-white'
+                            : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        )}
         
         {filteredRequests.length === 0 && (
           <div className="text-center py-12">
@@ -450,9 +568,9 @@ export function LeaveManagement({
                               <p className="text-xs !text-blue-700 !mb-1 font-semibold uppercase">Sick</p>
                               <p className="!text-xl font-bold !text-blue-700 !mb-0">{balance.sick}<span className="text-xs ml-1">days</span></p>
                             </div>
-                            <div className="bg-purple-50 p-3 border-l-2 border-purple-500">
-                              <p className="text-xs !text-purple-700 !mb-1 font-semibold uppercase">Casual</p>
-                              <p className="!text-xl font-bold !text-purple-700 !mb-0">{balance.casual}<span className="text-xs ml-1">days</span></p>
+                            <div className="bg-orange-50 p-3 border-l-2 border-orange-500">
+                              <p className="text-xs !text-orange-700 !mb-1 font-semibold uppercase">Emergency</p>
+                              <p className="!text-xl font-bold !text-orange-700 !mb-0">{balance.casual}<span className="text-xs ml-1">days</span></p>
                             </div>
                           </>
                         );
@@ -474,9 +592,7 @@ export function LeaveManagement({
                   >
                     <option value="Annual">Annual Leave</option>
                     <option value="Sick">Sick Leave</option>
-                    <option value="Casual">Casual Leave</option>
                     <option value="Emergency">Emergency Leave</option>
-                    <option value="Unpaid">Unpaid Leave</option>
                   </select>
                 </div>
 
