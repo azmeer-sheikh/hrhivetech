@@ -244,7 +244,7 @@ function MainApp() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardOverview />;
+        return <DashboardOverview setActiveTab={setActiveTab} />;
       case 'daily-attendance':
         return (
           <DailyAttendance

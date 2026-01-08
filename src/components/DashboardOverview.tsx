@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Users, UserCheck, Building2, Clock, Calendar, Palmtree, FileText, TrendingUp, Bell, Award } from 'lucide-react';
+import { Users, UserCheck, Building2, Clock, Calendar, Palmtree, FileText, TrendingUp, Bell, Award, FileCheck, Users2, Megaphone, Gift, BarChart3, DollarSign } from 'lucide-react';
 import { announcementAPI, holidayAPI } from '../services/api';
 
-export function DashboardOverview() {
+export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const todayISO = new Date().toISOString().split('T')[0];
 
   const [recentActivities, setRecentActivities] = useState<Array<{
@@ -120,10 +120,136 @@ export function DashboardOverview() {
   ];
 
   const quickActions = [
-    { title: 'Mark Attendance', icon: Clock, color: 'blue', bg: 'bg-blue-500', border: 'border-blue-200', hover: 'hover:border-blue-300', cardBg: 'bg-blue-50' },
-    { title: 'Apply Leave', icon: Palmtree, color: 'emerald', bg: 'bg-emerald-500', border: 'border-emerald-200', hover: 'hover:border-emerald-300', cardBg: 'bg-emerald-50' },
-    { title: 'Upload Document', icon: FileText, color: 'purple', bg: 'bg-purple-500', border: 'border-purple-200', hover: 'hover:border-purple-300', cardBg: 'bg-purple-50' },
-    { title: 'View Reports', icon: TrendingUp, color: 'amber', bg: 'bg-amber-500', border: 'border-amber-200', hover: 'hover:border-amber-300', cardBg: 'bg-amber-50' },
+    {
+      title: 'Daily Attendance',
+      icon: Clock,
+      cardBg: 'bg-blue-50',
+      border: 'border-blue-200',
+      hover: 'hover:border-blue-300',
+      accentText: 'text-blue-700',
+      line: 'via-blue-400',
+      iconBg: 'bg-blue-600',
+      iconRing: 'ring-4 ring-blue-100',
+      iconColor: 'text-white',
+      tab: 'daily-attendance',
+    },
+    {
+      title: 'Employees',
+      icon: Users,
+      cardBg: 'bg-emerald-50',
+      border: 'border-emerald-200',
+      hover: 'hover:border-emerald-300',
+      accentText: 'text-emerald-700',
+      line: 'via-emerald-400',
+      iconBg: 'bg-emerald-600',
+      iconRing: 'ring-4 ring-emerald-100',
+      iconColor: 'text-white',
+      tab: 'employees',
+    },
+    {
+      title: 'Attendance Records',
+      icon: Calendar,
+      cardBg: 'bg-blue-50',
+      border: 'border-cyan-200',
+      hover: 'hover:border-cyan-300',
+      accentText: 'text-cyan-700',
+      line: 'via-cyan-400',
+      iconBg: 'bg-blue-500',
+      iconRing: 'ring-4 ring-sky-100 ring-offset-2 ring-offset-white',
+      iconColor: 'text-white',
+      tab: 'attendance',
+    },
+    {
+      title: 'Leave Management',
+      icon: Palmtree,
+      cardBg: 'bg-amber-50',
+      border: 'border-amber-200',
+      hover: 'hover:border-amber-300',
+      accentText: 'text-amber-700',
+      line: 'via-amber-400',
+      iconBg: 'bg-amber-600',
+      iconRing: 'ring-4 ring-amber-100',
+      iconColor: 'text-white',
+      tab: 'leaves',
+    },
+    {
+      title: 'Documents',
+      icon: FileText,
+      cardBg: 'bg-purple-50',
+      border: 'border-purple-200',
+      hover: 'hover:border-purple-300',
+      accentText: 'text-purple-700',
+      line: 'via-purple-400',
+      iconBg: 'bg-purple-600',
+      iconRing: 'ring-4 ring-purple-100',
+      iconColor: 'text-white',
+      tab: 'documents',
+    },
+    {
+      title: 'Interviews',
+      icon: Users2,
+      cardBg: 'bg-orange-300',
+      border: 'border-orange-200',
+      hover: 'hover:border-orange-300',
+      accentText: 'text-orange-700',
+      line: 'via-orange-400',
+      iconBg: 'bg-amber-600',
+      iconRing: 'ring-4 ring-amber-100 ring-offset-2 ring-offset-white',
+      iconColor: 'text-white',
+      tab: 'interviews',
+    },
+    {
+      title: 'Announcements',
+      icon: Megaphone,
+      cardBg: 'bg-red-50',
+      border: 'border-red-200',
+      hover: 'hover:border-red-300',
+      accentText: 'text-red-700',
+      line: 'via-red-400',
+      iconBg: 'bg-red-600',
+      iconRing: 'ring-4 ring-red-100',
+      iconColor: 'text-white',
+      tab: 'announcements',
+    },
+    {
+      title: 'Holidays',
+      icon: Gift,
+      cardBg: 'bg-green-50',
+      border: 'border-pink-200',
+      hover: 'hover:border-pink-300',
+      accentText: 'text-pink-700',
+      line: 'via-pink-400',
+      iconBg: 'bg-red-500',
+      iconRing: 'ring-4 ring-rose-100 ring-offset-2 ring-offset-white',
+      iconColor: 'text-white',
+      tab: 'holidays',
+    },
+    {
+      title: 'Analytics',
+      icon: BarChart3,
+      cardBg: 'bg-indigo-50',
+      border: 'border-indigo-200',
+      hover: 'hover:border-indigo-300',
+      accentText: 'text-indigo-700',
+      line: 'via-indigo-400',
+      iconBg: 'bg-indigo-600',
+      iconRing: 'ring-4 ring-indigo-100',
+      iconColor: 'text-white',
+      tab: 'analytics',
+    },
+    {
+      title: 'Labor Cost',
+      icon: DollarSign,
+      cardBg: 'bg-yellow-500',
+      border: 'border-yellow-200',
+      hover: 'hover:border-yellow-300',
+      accentText: 'text-yellow-700',
+      line: 'via-yellow-400',
+      iconBg: 'bg-yellow-500',
+      iconRing: 'ring-4 ring-yellow-100',
+      iconColor: 'text-gray-900',
+      tab: 'labor-cost',
+    },
   ];
 
   const activityList = recentActivities.length ? recentActivities : [
@@ -178,23 +304,40 @@ export function DashboardOverview() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-lg font-bold text-gray-900 mb-0">Quick Actions</h3>
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div className="px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-gray-50">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-bold text-gray-900">Quick Actions</h3>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">Access key features in one click</p>
         </div>
-        <div className="p-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
                 <button
                   key={index}
-                  className={`${action.cardBg} border ${action.border} ${action.hover} rounded-xl p-6 flex flex-col items-center gap-4 transition-all duration-300 hover:shadow-md group`}
+                  onClick={() => setActiveTab(action.tab)}
+                  className={`group relative overflow-hidden ${action.cardBg} border-2 ${action.border} rounded-2xl p-6 flex flex-col items-center gap-4 transition-all duration-300 hover:shadow-lg hover:border-opacity-100 cursor-pointer transform hover:scale-105 hover:-translate-y-1 active:scale-95`}
                 >
-                  <div className={`${action.bg} p-4 rounded-lg shadow-sm group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon className="w-6 h-6 text-white" />
+                  {/* Background Gradient on Hover */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"></div>
+                  
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <div className={`${action.iconBg} ${action.iconRing} p-5 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-125 transition-all duration-300 flex items-center justify-center`}> 
+                      <Icon className={`w-7 h-7 ${action.iconColor}`} />
+                    </div>
                   </div>
-                  <span className={`text-sm font-semibold text-${action.color}-700`}>{action.title}</span>
+                  
+                  <div className="relative z-10 text-center">
+                    <span className="text-sm font-bold text-gray-900 block leading-tight">{action.title}</span>
+                    <span className={`text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${action.accentText} mt-1`}>Click to open</span>
+                  </div>
+                  
+                  {/* Bottom Accent Line */}
+                  <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent ${action.line} to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300`}></div>
                 </button>
               );
             })}
