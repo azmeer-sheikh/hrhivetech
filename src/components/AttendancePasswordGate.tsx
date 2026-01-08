@@ -16,6 +16,7 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [remainingTime, setRemainingTime] = useState<string>('');
 
   // Check if already unlocked on mount
   useEffect(() => {
@@ -26,11 +27,53 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
     if (isUnlocked) {
       console.log('[AttendancePasswordGate] Auto-unlocking based on localStorage');
       setIsUnlocked(true);
+      updateRemainingTime();
     } else {
       console.log('[AttendancePasswordGate] Password required');
     }
     setIsLoading(false);
   }, []);
+
+  // Update remaining time every minute
+  useEffect(() => {
+    if (!isUnlocked) return;
+
+    const interval = setInterval(() => {
+      updateRemainingTime();
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [isUnlocked]);
+
+  const updateRemainingTime = () => {
+    try {
+      const unlocksJson = localStorage.getItem('passwordUnlocks');
+      if (!unlocksJson) {
+        setRemainingTime('');
+        return;
+      }
+
+      const unlocks = JSON.parse(unlocksJson);
+      const unlock = unlocks[GATE_ID];
+
+      if (!unlock) {
+        setRemainingTime('');
+        return;
+      }
+
+      const timeRemaining = unlock.expiresAt - Date.now();
+      if (timeRemaining <= 0) {
+        setRemainingTime('');
+        return;
+      }
+
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      setRemainingTime(`${hours}h ${minutes}m remaining`);
+    } catch (error) {
+      console.error('Error updating remaining time:', error);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,8 +87,9 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
       console.log('[AttendancePasswordGate] Saved unlocks:', savedUnlocks);
       
       setIsUnlocked(true);
-      toast.success('Access granted! Password saved for 24 hours', {
-        description: 'You won\'t need to enter it again until tomorrow',
+      toast.success('Access Granted for 24 Hours! 🎉', {
+        description: 'Daily Attendance is unlocked. You won\'t need to enter the password again until tomorrow.',
+        duration: 5000,
       });
       setError('');
     } else {
@@ -72,7 +116,8 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
               <Shield className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Protected Access</h2>
-            <p className="text-amber-100 text-sm mb-0">Enter password to access attendance marking</p>
+            <p className="text-amber-100 text-sm mb-0">Enter password to access Daily Attendance</p>
+            <p className="text-amber-50 text-xs mt-3 opacity-90">🔓 Once unlocked, you'll have access for 24 hours</p>
           </div>
 
           {/* Form */}

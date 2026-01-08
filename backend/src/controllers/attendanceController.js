@@ -160,30 +160,59 @@ exports.createAttendance = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Check out
+// @desc    Check out (defaults to today, can accept specific date)
 // @route   POST /api/attendance/check-out
 // @access  Private
 exports.checkOut = asyncHandler(async (req, res) => {
-  const { employeeId, location } = req.body;
-  
-  // Find today's attendance
-  const today = moment().startOf('day');
+  const { employeeId, location, date } = req.body;
+
+  // Determine target day (default today)
+  const targetDate = date ? moment(date).startOf('day') : moment().startOf('day');
+  const start = targetDate.toDate();
+  const end = moment(targetDate).endOf('day').toDate();
+
+  // Find attendance for the target day that has not checked out yet
   const attendance = await Attendance.findOne({
     employee: employeeId,
-    date: { $gte: today.toDate() },
+    date: { $gte: start, $lte: end },
     checkOut: null
   });
 
   if (!attendance) {
-    return res.status(404).json({
-      success: false,
-      message: 'No check-in record found for today'
+    // Fallback: look in a ±1 day window to handle cross-midnight shifts
+    const fallbackStart = moment(targetDate).subtract(1, 'day').startOf('day').toDate();
+    const fallbackEnd = moment(targetDate).add(1, 'day').endOf('day').toDate();
+    const nearby = await Attendance.findOne({
+      employee: employeeId,
+      date: { $gte: fallbackStart, $lte: fallbackEnd },
+      checkOut: null
+    }).sort({ date: -1 });
+
+    if (!nearby) {
+      return res.status(404).json({
+        success: false,
+        message: 'No check-in record found near the selected date'
+      });
+    }
+
+    // Use the nearby record
+    nearby.checkOut = req.body.checkOut ? new Date(req.body.checkOut) : new Date();
+    if (location) {
+      nearby.location = nearby.location || {};
+      nearby.location.checkOut = location;
+    }
+    await nearby.save();
+
+    return res.status(200).json({
+      success: true,
+      data: nearby
     });
   }
 
   // Update attendance with check-out
-  attendance.checkOut = new Date();
+  attendance.checkOut = req.body.checkOut ? new Date(req.body.checkOut) : new Date();
   if (location) {
+    attendance.location = attendance.location || {};
     attendance.location.checkOut = location;
   }
   await attendance.save();

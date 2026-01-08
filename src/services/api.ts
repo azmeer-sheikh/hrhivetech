@@ -252,6 +252,13 @@ export const attendanceAPI = {
       method: 'DELETE',
     });
   },
+
+  checkOut: async (employeeId: string | number, date?: string, location?: Record<string, any>, checkOut?: Date | string) => {
+    return apiCall('/api/attendance/check-out', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, date, location, checkOut }),
+    });
+  },
 };
 
 // ==================== Leave APIs ====================

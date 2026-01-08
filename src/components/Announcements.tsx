@@ -20,9 +20,9 @@ const mapTypeToCategory = (type?: string): Announcement['category'] => {
       return 'Policy';
     case 'Event':
       return 'Event';
-    case 'Holiday':
-      return 'Holiday';
-    case 'Important':
+    case 'Achievement':
+      return 'Important';
+    case 'Emergency':
       return 'Important';
     default:
       return 'General';
@@ -36,9 +36,9 @@ const mapCategoryToType = (category: Announcement['category']): string => {
     case 'Event':
       return 'Event';
     case 'Holiday':
-      return 'Holiday';
+      return 'Event';
     case 'Important':
-      return 'Important';
+      return 'Achievement';
     default:
       return 'General';
   }

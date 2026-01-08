@@ -35,6 +35,18 @@ export function AttendanceTracking({
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [timeModalType, setTimeModalType] = useState<'checkin' | 'checkout'>('checkin');
+  const [selectedEmployeeForTime, setSelectedEmployeeForTime] = useState<Employee | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<AttendanceRecord['status']>('Present');
+  const [customTime, setCustomTime] = useState('');
+  const [customDate, setCustomDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortBy, setSortBy] = useState<'name' | 'department'>('name');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const normalizeId = (value?: string | number) => String(value ?? '');
 
@@ -138,7 +150,7 @@ export function AttendanceTracking({
     }
   };
 
-  const toggleAttendance = async (employeeId: string | number, status: AttendanceRecord['status']) => {
+  const toggleAttendance = async (employeeId: string | number, status: AttendanceRecord['status'], time?: string, date?: string) => {
     const employeeKey = normalizeId(employeeId);
     setPendingIds(prev => {
       const next = new Set(prev);
@@ -149,8 +161,9 @@ export function AttendanceTracking({
     try {
       console.log('[AT-MARK] Starting mark for employee', employeeKey, 'status', status);
       
+      const targetDate = date || selectedDate;
       const existingIndex = attendanceRecords.findIndex(
-        r => normalizeId(r.employeeId) === employeeKey && r.date === selectedDate
+        r => normalizeId(r.employeeId) === employeeKey && r.date === targetDate
       );
 
       const employee = employees.find(
@@ -163,19 +176,24 @@ export function AttendanceTracking({
 
       console.log('[AT-MARK] Found employee:', employee);
 
-      const checkInTime = status === 'Present' || status === 'Late'
-        ? new Date(`${selectedDate}T09:00:00`)
-        : null;
-      const checkOutTime = status === 'Present'
-        ? new Date(`${selectedDate}T17:00:00`)
-        : null;
+      let checkInTime = null;
+      
+      if (status === 'Present' || status === 'Late') {
+        if (time) {
+          const [hours, minutes] = time.split(':');
+          checkInTime = new Date(targetDate);
+          checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        } else {
+          checkInTime = new Date(`${targetDate}T09:00:00`);
+        }
+      }
 
       const attendanceData = {
         employee: employee._id || employee.id,
-        date: selectedDate,
+        date: targetDate,
         status: status === 'Leave' ? 'On Leave' : status,
         checkIn: checkInTime,
-        checkOut: checkOutTime,
+        checkOut: null,
       };
 
       console.log('[AT-MARK] Sending to API:', attendanceData);
@@ -221,6 +239,25 @@ export function AttendanceTracking({
     return attendanceRecords.find(r => normalizeId(r.employeeId) === employeeKey && r.date === date);
   };
 
+  const openTimeModal = (employee: Employee, status: AttendanceRecord['status'], type: 'checkin' | 'checkout', date?: string) => {
+    setSelectedEmployeeForTime(employee);
+    setSelectedStatus(status);
+    setTimeModalType(type);
+    const now = new Date();
+    setCustomTime(now.toTimeString().slice(0, 5));
+    setCustomDate(date || selectedDate);
+    setShowTimeModal(true);
+  };
+
+  const handleTimeModalSubmit = () => {
+    if (timeModalType === 'checkin' && selectedEmployeeForTime) {
+      toggleAttendance(selectedEmployeeForTime.id, selectedStatus, customTime, customDate);
+    } else if (timeModalType === 'checkout' && selectedEmployeeForTime) {
+      markCheckout(selectedEmployeeForTime.id, customTime, customDate);
+    }
+    setShowTimeModal(false);
+  };
+
   const calculateMonthlyStats = (employeeId: string | number) => {
     const employeeKey = normalizeId(employeeId);
     const currentMonth = selectedDate.substring(0, 7);
@@ -234,6 +271,65 @@ export function AttendanceTracking({
     const leave = monthRecords.filter(r => r.status === 'Leave').length;
 
     return { present, absent, late, leave, total: monthRecords.length };
+  };
+
+  const markCheckout = async (employeeId: string | number, time?: string, date?: string) => {
+    const employeeKey = normalizeId(employeeId);
+    setPendingIds(prev => new Set(prev).add(employeeKey));
+    try {
+      const targetDate = date || selectedDate;
+      const employee = employees.find(
+        e => normalizeId(e.id) === employeeKey || normalizeId(e._id) === employeeKey
+      );
+      if (!employee) throw new Error('Employee not found');
+
+      let checkOutTime = new Date();
+      
+      if (time) {
+        const [hours, minutes] = time.split(':');
+        checkOutTime = new Date(targetDate);
+        checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      }
+
+      try {
+        await attendanceAPI.checkOut(String(employee._id || employee.id), targetDate, undefined, checkOutTime.toISOString());
+      } catch (err) {
+        // Fallback: locate the record and update checkOut by id
+        const res: any = await attendanceAPI.getAll(1, 50, {
+          employeeId: String(employee._id || employee.id),
+          startDate: targetDate,
+          endDate: targetDate,
+        });
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const target = items.find((a: any) => !a.checkOut);
+        if (!target) throw err;
+        await attendanceAPI.update(String(target._id || target.id), { checkOut: checkOutTime.toISOString() });
+      }
+
+      // Optimistic update
+      setAttendanceRecords(prev => prev.map(r => {
+        if (r.date === targetDate && normalizeId(r.employeeId) === employeeKey) {
+          return { ...r, checkOut: formatTime(checkOutTime) || new Date().toLocaleTimeString() };
+        }
+        return r;
+      }));
+
+      toast.success('Checked out successfully');
+
+      // Reload to ensure data is synced
+      setTimeout(() => {
+        loadAttendance();
+      }, 800);
+    } catch (error: any) {
+      console.error('[AT-CHECKOUT] Failed:', error);
+      toast.error(error.message || 'Failed to check out');
+    } finally {
+      setPendingIds(prev => {
+        const next = new Set(prev);
+        next.delete(employeeKey);
+        return next;
+      });
+    }
   };
 
   const getDailyStats = () => {
@@ -506,51 +602,69 @@ export function AttendanceTracking({
                           {attendance?.checkOut || '-'}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => toggleAttendance(employee.id, 'Present')}
-                              disabled={!!attendance || isPending}
-                              className={`px-3 py-1 rounded transition-colors ${
-                                attendance || isPending
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-                              }`}
-                            >
-                              Present
-                            </button>
-                            <button
-                              onClick={() => toggleAttendance(employee.id, 'Absent')}
-                              disabled={!!attendance || isPending}
-                              className={`px-3 py-1 rounded transition-colors ${
-                                attendance || isPending
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
-                              }`}
-                            >
-                              Absent
-                            </button>
-                            <button
-                              onClick={() => toggleAttendance(employee.id, 'Late')}
-                              disabled={!!attendance || isPending}
-                              className={`px-3 py-1 rounded transition-colors ${
-                                attendance || isPending
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                  : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                              }`}
-                            >
-                              Late
-                            </button>
-                            <button
-                              onClick={() => toggleAttendance(employee.id, 'Leave')}
-                              disabled={!!attendance || isPending}
-                              className={`px-3 py-1 rounded transition-colors ${
-                                attendance || isPending
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                              }`}
-                            >
-                              Leave
-                            </button>
+                          <div className="flex gap-2 flex-wrap items-center">
+                            {!attendance && (
+                              <>
+                                <button
+                                  onClick={() => openTimeModal(employee, 'Present', 'checkin')}
+                                  disabled={!!attendance || isPending}
+                                  className={`px-3 py-1 rounded transition-colors ${
+                                    attendance || isPending
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  }`}
+                                >
+                                  Present
+                                </button>
+                                <button
+                                  onClick={() => toggleAttendance(employee.id, 'Absent')}
+                                  disabled={!!attendance || isPending}
+                                  className={`px-3 py-1 rounded transition-colors ${
+                                    attendance || isPending
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  }`}
+                                >
+                                  Absent
+                                </button>
+                                <button
+                                  onClick={() => openTimeModal(employee, 'Late', 'checkin')}
+                                  disabled={!!attendance || isPending}
+                                  className={`px-3 py-1 rounded transition-colors ${
+                                    attendance || isPending
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                                  }`}
+                                >
+                                  Late
+                                </button>
+                                <button
+                                  onClick={() => toggleAttendance(employee.id, 'Leave')}
+                                  disabled={!!attendance || isPending}
+                                  className={`px-3 py-1 rounded transition-colors ${
+                                    attendance || isPending
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  }`}
+                                >
+                                  Leave
+                                </button>
+                              </>
+                            )}
+
+                            {attendance && !attendance.checkOut && (attendance.status === 'Present' || attendance.status === 'Late') && (
+                              <button
+                                onClick={() => openTimeModal(employee, attendance.status, 'checkout')}
+                                disabled={isPending}
+                                className={`px-3 py-1 rounded transition-colors ${
+                                  isPending
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-slate-800 text-white hover:bg-slate-900'
+                                }`}
+                              >
+                                Check Out
+                              </button>
+                            )}
                           </div>
                         </td>
                       </>
@@ -586,6 +700,59 @@ export function AttendanceTracking({
           </table>
         </div>
       </div>
+
+      {/* Time Selection Modal */}
+      {showTimeModal && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" 
+          style={{ backdropFilter: 'blur(2px)' }}
+        >
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold mb-4">
+              {timeModalType === 'checkin' ? 'Select Check-In Time' : 'Select Check-Out Time'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  onClick={() => setShowTimeModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTimeModalSubmit}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

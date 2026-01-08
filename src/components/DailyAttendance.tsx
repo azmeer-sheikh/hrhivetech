@@ -46,6 +46,12 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
   const [loading, setLoading] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [isPasswordAuthenticated, setIsPasswordAuthenticated] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [timeModalType, setTimeModalType] = useState<'checkin' | 'checkout'>('checkin');
+  const [selectedEmployeeForTime, setSelectedEmployeeForTime] = useState<Employee | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<AttendanceRecord['status']>('Present');
+  const [customTime, setCustomTime] = useState('');
+  const [customDate, setCustomDate] = useState('');
 
   const getCurrentTime = () => {
     return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -87,7 +93,6 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
       const startDate = start.toISOString().split('T')[0];
       const endDate = end.toISOString().split('T')[0];
 
-      console.log('[LOAD] Fetching attendance from', startDate, 'to', endDate, 'for selected', dateForQuery);
       
       const response = await attendanceAPI.getAll(1, 1000, {
         startDate,
@@ -146,14 +151,34 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
     }
   };
 
-  const markAttendance = async (employeeId: number | string, status: AttendanceRecord['status']) => {
+  const openTimeModal = (employee: Employee, status: AttendanceRecord['status'], type: 'checkin' | 'checkout') => {
+    setSelectedEmployeeForTime(employee);
+    setSelectedStatus(status);
+    setTimeModalType(type);
+    const now = new Date();
+    setCustomTime(now.toTimeString().slice(0, 5));
+    setCustomDate(type === 'checkin' ? selectedDate : selectedDate);
+    setShowTimeModal(true);
+  };
+
+  const handleTimeModalSubmit = () => {
+    if (timeModalType === 'checkin' && selectedEmployeeForTime) {
+      markAttendance(selectedEmployeeForTime.id, selectedStatus, customTime, customDate);
+    } else if (timeModalType === 'checkout' && selectedEmployeeForTime) {
+      markCheckout(selectedEmployeeForTime.id, customTime);
+    }
+    setShowTimeModal(false);
+  };
+
+  const markAttendance = async (employeeId: number | string, status: AttendanceRecord['status'], time?: string, date?: string) => {
     const employeeKey = normalizeId(employeeId);
 
     // Mark as pending IMMEDIATELY before any async work
     setPendingIds(prev => new Set(prev).add(employeeKey));
     
     try {
-      const now = new Date();
+      const targetDate = date || selectedDate;
+      let checkInTime = null;
       
       // Find the employee
       const employee = employees.find(
@@ -170,11 +195,15 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
         return;
       }
 
-      // Set check-in time based on status
-      let checkInTime = null;
-      
+      // Set check-in time based on status and custom time if provided
       if (status === 'Present' || status === 'Late') {
-        checkInTime = now;
+        if (time) {
+          const [hours, minutes] = time.split(':');
+          checkInTime = new Date(targetDate);
+          checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        } else {
+          checkInTime = new Date();
+        }
       }
 
       // Use _id if available, otherwise use id (for mock data compatibility)
@@ -193,9 +222,9 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
 
       const attendanceData = {
         employee: employeeIdForBackend,
-        date: selectedDate,
+        date: targetDate,
         status: status === 'Leave' ? 'On Leave' : status,
-        checkIn: checkInTime,
+        checkIn: checkInTime ? checkInTime.toISOString() : null,
         checkOut: null,
       };
       
@@ -268,6 +297,69 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
     }
     // NOTE: Do NOT clear pending here - let the reload response clear it
     // This keeps button disabled until data is confirmed from backend
+  };
+
+  const markCheckout = async (employeeId: number | string, time?: string) => {
+    const employeeKey = normalizeId(employeeId);
+    setPendingIds(prev => new Set(prev).add(employeeKey));
+
+    try {
+      const employee = employees.find(
+        e => normalizeId(e.id) === employeeKey || normalizeId(e._id) === employeeKey
+      );
+      if (!employee) throw new Error('Employee not found');
+
+      const employeeIdForBackend = employee._id || employee.id;
+      let checkOutTime = new Date();
+      
+      if (time) {
+        const [hours, minutes] = time.split(':');
+        checkOutTime = new Date(selectedDate);
+        checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      }
+      try {
+        await attendanceAPI.checkOut(String(employeeIdForBackend), selectedDate, undefined, checkOutTime.toISOString() as any);
+      } catch (err) {
+        // Fallback: locate the record and update checkOut by id
+        const res: any = await attendanceAPI.getAll(1, 50, {
+          employeeId: String(employeeIdForBackend),
+          startDate: selectedDate,
+          endDate: selectedDate,
+        });
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const target = items.find((a: any) => !a.checkOut);
+        if (!target) throw err;
+        await attendanceAPI.update(String(target._id || target.id), { checkOut: checkOutTime.toISOString() });
+      }
+
+      // Optimistic update
+      setAttendanceRecords(prev => prev.map(r => {
+        if (r.date === selectedDate && normalizeId(r.employeeId) === employeeKey) {
+          return { ...r, checkOut: formatTime(checkOutTime) || getCurrentTime() };
+        }
+        return r;
+      }));
+
+      toast.success(`${employee.name} checked out`);
+
+      setTimeout(() => {
+        loadAttendance(selectedDate).finally(() => {
+          setPendingIds(prev => {
+            const next = new Set(prev);
+            next.delete(employeeKey);
+            return next;
+          });
+        });
+      }, 500);
+    } catch (error: any) {
+      console.error('Failed to check out:', error);
+      toast.error(error.message || 'Failed to check out');
+      setPendingIds(prev => {
+        const next = new Set(prev);
+        next.delete(employeeKey);
+        return next;
+      });
+    }
   };
 
   const markAllPresent = async () => {
@@ -677,16 +769,31 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
               className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
             >
               <div className="p-6 space-y-4">
-                {/* Employee Info */}
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold">
-                    {employee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                {/* Employee Info + Right-side Checkout */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold">
+                      {employee.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="!text-gray-900 !mb-1 truncate">{employee.name}</h4>
+                      <p className="text-sm !text-gray-600 !mb-0.5 truncate">{employee.position}</p>
+                      <p className="text-xs !text-gray-500 !mb-0 truncate">{employee.department}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="!text-gray-900 !mb-1 truncate">{employee.name}</h4>
-                    <p className="text-sm !text-gray-600 !mb-0.5 truncate">{employee.position}</p>
-                    <p className="text-xs !text-gray-500 !mb-0 truncate">{employee.department}</p>
-                  </div>
+                  {attendance && !attendance.checkOut && (attendance.status === 'Present' || attendance.status === 'Late') && (
+                    <button
+                      onClick={() => openTimeModal(employee, attendance.status, 'checkout')}
+                      disabled={isPending}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isPending
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-slate-800 !text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      Check Out
+                    </button>
+                  )}
                 </div>
 
                 {/* Status Badge */}
@@ -711,8 +818,12 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
                       {attendance.checkIn && (
                         <span className="ml-1 opacity-75">• {attendance.checkIn}</span>
                       )}
+                      {attendance.checkOut && (
+                        <span className="ml-1 opacity-75">• {attendance.checkOut}</span>
+                      )}
                     </div>
                     <p className="text-xs !text-gray-500 !mt-2 !mb-0">✓ Marked (tap to update)</p>
+                    {/* Checkout button moved to header and only for Present/Late */}
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 !text-gray-600 border border-gray-200 text-sm font-medium">
@@ -724,7 +835,7 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
                 {/* Action Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => markAttendance(employee.id, 'Present')}
+                    onClick={() => openTimeModal(employee, 'Present', 'checkin')}
                     disabled={isPending || !!attendance}
                     className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isPending || !!attendance
@@ -746,7 +857,7 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
                     Absent
                   </button>
                   <button
-                    onClick={() => markAttendance(employee.id, 'Late')}
+                    onClick={() => openTimeModal(employee, 'Late', 'checkin')}
                     disabled={isPending || !!attendance}
                     className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isPending || !!attendance
@@ -790,6 +901,56 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
           totalPages={Math.ceil(filteredEmployees.length / itemsPerPage)}
           onPageChange={setCurrentPage}
         />
+      )}
+
+      {/* Time Selection Modal */}
+      {showTimeModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" style={{backdropFilter: 'blur(2px)'}}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">
+              {timeModalType === 'checkin' ? 'Select Check-In Time' : 'Select Check-Out Time'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  onClick={() => setShowTimeModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTimeModalSubmit}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
