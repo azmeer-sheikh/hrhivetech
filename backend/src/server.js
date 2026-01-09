@@ -7,6 +7,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
+const path = require('path');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -28,7 +29,12 @@ connectDB();
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false,
+  xFrameOptions: false
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -70,7 +76,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  // allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Let cors handle this automatically
   exposedHeaders: ['X-Total-Count', 'X-Page-Count']
 }));
 
@@ -80,6 +86,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Compression middleware
 app.use(compression());
+
+// Static file serving with explicit CORS and header permissions
+app.use('/uploads', (req, res, next) => {
+  // Allow any origin to access uploaded files
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {

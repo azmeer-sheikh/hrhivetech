@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Upload, Download, Trash2, Search, Filter, File } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Search, Filter, File, Eye, X } from 'lucide-react';
 import { documentAPI } from '../services/api';
 import { toast } from 'sonner';
 
@@ -20,6 +20,7 @@ export interface Document {
   uploadedBy: string;
   uploadedAt: string;
   fileSize: string;
+  fileUrl?: string;
 }
 
 interface DocumentsProps {
@@ -30,6 +31,7 @@ interface DocumentsProps {
 
 export function Documents({ employees, documents, setDocuments }: DocumentsProps) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
@@ -87,6 +89,7 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
           uploadedBy: item.uploadedBy?.username || item.uploadedBy?.email || 'System',
           uploadedAt: item.createdAt || new Date().toISOString(),
           fileSize: item.fileSize ? (item.fileSize < 1024 ? `${item.fileSize} bytes` : item.fileSize < 1048576 ? `${(item.fileSize / 1024).toFixed(1)} KB` : `${(item.fileSize / 1048576).toFixed(1)} MB`) : '—',
+          fileUrl: item.fileUrl,
         };
       });
 
@@ -102,21 +105,17 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
 
     setUploading(true);
     try {
-      const employee = employees.find(emp => String(emp._id || emp.id) === String(selectedEmployee));
-      const safeName = documentName || selectedFile?.name || 'Document';
-      const fileName = selectedFile?.name || `${safeName}.pdf`;
-      const payload = {
-        title: safeName,
-        documentType: mapTypeToBackend(documentType),
-        employee: String(selectedEmployee),
-        description: 'Uploaded via UI',
-        fileName,
-        fileUrl: `/uploads/documents/${Date.now()}-${fileName.replace(/\s+/g, '-')}`,
-        fileSize: selectedFile?.size || 0,
-        employeeName: employee?.name || 'Employee',
-      };
+      const formData = new FormData();
+      formData.append('title', documentName || selectedFile?.name || 'Document');
+      formData.append('documentType', mapTypeToBackend(documentType));
+      formData.append('employee', String(selectedEmployee));
+      formData.append('description', 'Uploaded via UI');
+      
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+      }
 
-      await documentAPI.upload(payload);
+      await documentAPI.upload(formData);
       await loadDocuments();
 
       // Reset form
@@ -273,6 +272,13 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setViewingDocument(doc)}
+                  className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  title="View Document"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => alert('Download functionality would be implemented here (link stored in fileUrl)')}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   title="Download"
@@ -315,6 +321,73 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">No documents found</p>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {viewingDocument && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
+          <div className="bg-white w-full md:w-1/2 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l border-gray-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 leading-none mb-1">{viewingDocument.documentName}</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span className="font-medium text-gray-700">{viewingDocument.employeeName}</span>
+                    <span>•</span>
+                    <span>{viewingDocument.documentType}</span>
+                    <span>•</span>
+                    <span>{viewingDocument.fileSize}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingDocument(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 bg-gray-100 relative w-full h-full overflow-hidden">
+              {viewingDocument.fileUrl ? (
+                <iframe
+                  src={viewingDocument.fileUrl.startsWith('http') ? viewingDocument.fileUrl : `http://localhost:5000${viewingDocument.fileUrl}`}
+                  className="w-full h-full border-none"
+                  title="Document Viewer"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                   <FileText className="w-16 h-16 text-gray-300 mb-4" />
+                   <p>No document URL available</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-between items-center">
+              <div className="text-sm text-gray-500">
+                Uploaded by <span className="font-medium text-gray-900">{viewingDocument.uploadedBy}</span> on {new Date(viewingDocument.uploadedAt).toLocaleDateString()}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setViewingDocument(null)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Close
+                </button>
+                <button
+                   onClick={() => window.open(viewingDocument.fileUrl?.startsWith('http') ? viewingDocument.fileUrl : `http://localhost:5000${viewingDocument.fileUrl}`, '_blank')}
+                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

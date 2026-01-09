@@ -17,9 +17,12 @@ async function apiCall<T>(
   const token = localStorage.getItem('authToken');
   
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     ...options.headers,
   };
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -460,10 +463,10 @@ export const documentAPI = {
     });
   },
 
-  upload: async (documentData: Record<string, any>) => {
+  upload: async (documentData: FormData | Record<string, any>) => {
     return apiCall('/documents', {
       method: 'POST',
-      body: JSON.stringify(documentData),
+      body: documentData instanceof FormData ? documentData : JSON.stringify(documentData),
     });
   },
 

@@ -82,14 +82,24 @@ exports.getDocument = asyncHandler(async (req, res) => {
 // @route   POST /api/documents
 // @access  Private
 exports.uploadDocument = asyncHandler(async (req, res) => {
-  // This would typically use multer middleware for file upload
-  // For now, we'll create the document record
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please upload a file'
+    });
+  }
+
+  const fileUrl = `/uploads/documents/${req.file.filename}`;
   
   const documentData = {
-    ...req.body,
+    title: req.body.title,
+    documentType: req.body.documentType,
+    employee: req.body.employee,
+    description: req.body.description,
     uploadedBy: req.user.id,
-    fileUrl: req.body.fileUrl || '/uploads/documents/' + Date.now(),
-    fileName: req.body.fileName || 'document.pdf'
+    fileUrl: fileUrl,
+    fileName: req.file.originalname,
+    fileSize: req.file.size
   };
 
   const document = await Document.create(documentData);

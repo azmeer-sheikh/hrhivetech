@@ -10,12 +10,13 @@ const {
   getDocumentStats
 } = require('../controllers/documentController');
 const { protect, authorize } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 router.use(protect); // All routes require authentication
 
 router.get('/', getDocuments);
 router.get('/stats/overview', authorize('admin', 'hr'), getDocumentStats); // Must be BEFORE /:id
-router.post('/', uploadDocument);
+router.post('/', upload.single('file'), uploadDocument);
 
 // These must come before generic /:id to avoid route conflicts
 router.get('/:id/download', downloadDocument);
