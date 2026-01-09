@@ -5,7 +5,7 @@ import { attendanceAPI, employeeAPI } from '../services/api';
 
 interface Employee {
   id: number | string;
-  _id?: string; // MongoDB ObjectId
+  _id?: string;
   name: string;
   position: string;
   department: string;
@@ -61,10 +61,8 @@ export function AttendanceTracking({
 
   const mapBackendRecord = (record: any): AttendanceRecord => ({
     employeeId: normalizeId(record?.employee?._id || record?.employee),
-    // Use local date to avoid UTC-day shifts (e.g., timezone offsets)
     date: record?.date ? new Date(record.date).toLocaleDateString('en-CA') : selectedDate,
     status: record?.status === 'On Leave' ? 'Leave' : record?.status,
-    // Prefer formatted times; fall back to raw strings if already formatted upstream
     checkIn: record?.checkIn ? formatTime(record.checkIn) || record.checkIn : undefined,
     checkOut: record?.checkOut ? formatTime(record.checkOut) || record.checkOut : undefined,
   });
@@ -73,7 +71,6 @@ export function AttendanceTracking({
   const loadAttendance = async () => {
     try {
       setLoading(true);
-      // For daily view, fetch a ±1 day window to avoid UTC/day boundary gaps; monthly fetches the full month
       const { startDate, endDate } = (() => {
         if (viewMode === 'daily') {
           const start = new Date(selectedDate);
@@ -94,9 +91,6 @@ export function AttendanceTracking({
           endDate: endOfMonth.toISOString().split('T')[0],
         };
       })();
-
-      console.log('[AT-LOAD] Fetching attendance from', startDate, 'to', endDate, 'mode:', viewMode);
-
       const response: any = await attendanceAPI.getAll(1, 1000, {
         startDate,
         endDate
@@ -104,10 +98,8 @@ export function AttendanceTracking({
 
       // Map backend data to frontend format
       const records = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
-      console.log('[AT-LOAD] Raw records:', records);
       
       const mappedRecords = records.map(mapBackendRecord);
-      console.log('[AT-LOAD] Mapped records:', mappedRecords);
 
       setAttendanceRecords(mappedRecords);
     } catch (error) {
@@ -159,8 +151,6 @@ export function AttendanceTracking({
     });
 
     try {
-      console.log('[AT-MARK] Starting mark for employee', employeeKey, 'status', status);
-      
       const targetDate = date || selectedDate;
       const existingIndex = attendanceRecords.findIndex(
         r => normalizeId(r.employeeId) === employeeKey && r.date === targetDate
@@ -173,9 +163,6 @@ export function AttendanceTracking({
       if (!employee) {
         throw new Error('Employee not found. Please refresh employees.');
       }
-
-      console.log('[AT-MARK] Found employee:', employee);
-
       let checkInTime = null;
       
       if (status === 'Present' || status === 'Late') {
@@ -196,29 +183,23 @@ export function AttendanceTracking({
         checkOut: null,
       };
 
-      console.log('[AT-MARK] Sending to API:', attendanceData);
 
       const response = await attendanceAPI.create(attendanceData);
       
       const saved = (response as any)?.data || response;
       const mapped = mapBackendRecord(saved);
-      console.log('[AT-MARK] Mapped record:', mapped);
 
       setAttendanceRecords((prev: AttendanceRecord[]) => {
         if (existingIndex >= 0) {
           const copy = [...prev];
           copy[existingIndex] = mapped;
-          console.log('[AT-MARK] Updated existing record at index', existingIndex);
           return copy;
         }
-        console.log('[AT-MARK] Adding new record');
         return [...prev, mapped];
       });
 
       toast.success(`${employee.name} marked as ${status}`);
 
-      // Reload to sync with backend and ensure aggregation stats stay current
-      console.log('[AT-MARK] Reloading data from backend...');
       setTimeout(() => {
         loadAttendance();
       }, 800);

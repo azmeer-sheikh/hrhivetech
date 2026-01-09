@@ -103,8 +103,6 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
       // Map backend data to frontend format
       const data = response?.data || response || [];
       const mappedRecords = (Array.isArray(data) ? data : []).map(mapBackendRecord);
-
-      console.log('[LOAD] Mapped attendance records:', mappedRecords);
       // Replace only this date's records to keep other dates intact
       setAttendanceRecords(prev => {
         const filtered = prev.filter(r => r.date !== dateForQuery);
@@ -231,9 +229,6 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
         checkOut: null,
       };
       
-      console.log('[MARK] Employee found:', employee.name);
-      console.log('[MARK] Employee ID for backend:', employeeIdForBackend);
-      console.log('[MARK] Sending attendance data:', attendanceData);
 
       // Show loading toast
       const toastId = toast.loading(`Marking ${employee.name} as ${status}...`);
@@ -241,7 +236,6 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
       // Create in backend
       const response = await attendanceAPI.create(attendanceData);
       
-      console.log('[MARK] Attendance API response:', response);
 
       // Update local state with the response data
       const employeeRecordId = normalizeId(employee._id || employee.id);
@@ -263,9 +257,7 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
       // Dismiss loading toast
       toast.dismiss(toastId);
       toast.success(`${employee.name} marked as ${status}`);
-      
-      console.log('[MARK] Attendance marked locally:', newRecord);
-      
+            
       // Reload from backend after delay to ensure data is persisted
       setTimeout(async () => {
         console.log('[MARK] Reloading attendance data from backend after mark...');

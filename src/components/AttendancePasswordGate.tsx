@@ -20,12 +20,10 @@ export function AttendancePasswordGate({ children }: AttendancePasswordGateProps
 
   // Check if already unlocked on mount
   useEffect(() => {
-    console.log('[AttendancePasswordGate] Checking unlock status for:', GATE_ID);
     const isUnlocked = isPasswordGateUnlocked(GATE_ID);
-    console.log('[AttendancePasswordGate] Is unlocked:', isUnlocked);
+
     
     if (isUnlocked) {
-      console.log('[AttendancePasswordGate] Auto-unlocking based on localStorage');
       setIsUnlocked(true);
       updateRemainingTime();
     } else {
