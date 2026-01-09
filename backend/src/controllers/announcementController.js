@@ -1,4 +1,6 @@
 const Announcement = require('../models/Announcement');
+const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
 const { asyncHandler, paginate, sendPaginatedResponse } = require('../utils/helpers');
 
 // @desc    Get all announcements
@@ -102,6 +104,33 @@ exports.createAnnouncement = asyncHandler(async (req, res) => {
   };
 
   const announcement = await Announcement.create(announcementData);
+
+  // Send email to all users
+  try {
+    const users = await User.find({ isActive: true }).select('email');
+    const emails = users.map(user => user.email).filter(email => email);
+
+    if (emails.length > 0) {
+      const message = `
+New Announcement: ${announcement.title}
+
+Priority: ${announcement.priority}
+Type: ${announcement.type}
+
+${announcement.content}
+
+Please log in to the HR Portal to view more details.
+      `;
+
+      await sendEmail({
+        bcc: emails,
+        subject: `HR Portal Announcement: ${announcement.title}`,
+        message
+      });
+    }
+  } catch (error) {
+    console.error('Email notification failed:', error);
+  }
 
   res.status(201).json({
     success: true,

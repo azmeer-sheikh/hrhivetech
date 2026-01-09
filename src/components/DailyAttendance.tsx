@@ -4,6 +4,7 @@ import { Pagination } from './Pagination';
 import { attendanceAPI } from '../services/api';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
+import { isPasswordGateUnlocked, setPasswordGateUnlocked } from '../utils/passwordGateStorage';
 
 interface Employee {
   id: number | string;
@@ -99,8 +100,6 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
         endDate
       });
 
-      console.log('[LOAD] Raw attendance response:', response);
-
       // Map backend data to frontend format
       const data = response?.data || response || [];
       const mappedRecords = (Array.isArray(data) ? data : []).map(mapBackendRecord);
@@ -112,37 +111,41 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
         return [...filtered, ...mappedRecords];
       });
       
-      console.log('[LOAD] State updated successfully');
     } catch (error) {
       console.error('[LOAD] Failed to load attendance:', error);
-      // Don't show error toast to avoid spam
     } finally {
       setLoading(false);
     }
   };
 
+  // Check persisted password on mount
+  useEffect(() => {
+    if (isPasswordGateUnlocked('attendance')) {
+      setIsPasswordAuthenticated(true);
+    }
+  }, []);
+
   // Load attendance on mount and when date/auth changes
   useEffect(() => {
     if (isAuthenticated && isPasswordAuthenticated) {
-      console.log('Loading attendance data for:', selectedDate);
       loadAttendance(selectedDate).finally(() => {
-        // Clear pending IDs after any load (success or error)
         setPendingIds(new Set());
       });
     }
   }, [isAuthenticated, isPasswordAuthenticated, selectedDate]);
 
-  // Auto-absent notice only (do not auto-lock records on frontend)
-  // Previously this auto-marked unmarked employees as Absent at 9 PM,
-  // which caused records to lock without user action. We now avoid
-  // mutating state here and leave any auto-processing to the backend.
-  // If needed later, we can show a warning banner or trigger a refresh.
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ATTENDANCE_PASSWORD) {
+      setPasswordGateUnlocked('attendance');
       setIsPasswordAuthenticated(true);
       setPasswordError('');
+      
+      toast.success('Access Granted for 24 Hours! 🎉', {
+        description: 'Daily Attendance is unlocked. You won\'t need to enter the password again until tomorrow.',
+        duration: 5000,
+      });
+
       // Load attendance data after password authentication
       setTimeout(() => loadAttendance(selectedDate), 100);
     } else {
