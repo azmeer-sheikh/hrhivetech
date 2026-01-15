@@ -29,7 +29,7 @@ const employeeSchema = new mongoose.Schema({
   },
   dateOfBirth: {
     type: Date,
-    required: true
+    required: false
   },
   gender: {
     type: String,
@@ -59,8 +59,7 @@ const employeeSchema = new mongoose.Schema({
   },
   joiningDate: {
     type: Date,
-    required: true,
-    default: Date.now
+    required: false
   },
   endDate: {
     type: Date

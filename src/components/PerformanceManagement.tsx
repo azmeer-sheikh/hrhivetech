@@ -37,6 +37,7 @@ export function PerformanceManagement({
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PerformanceRecord | null>(null);
+  const [deletingRecordId, setDeletingRecordId] = useState<number | null>(null);
 
   // Simulate AI PDF processing
   const processPDF = (file: File, employeeId: number): Promise<PerformanceRecord> => {
@@ -157,7 +158,11 @@ export function PerformanceManagement({
                 ? 'border-indigo-300 bg-white hover:bg-indigo-50 text-indigo-600' 
                 : 'border-gray-300 bg-gray-50 text-gray-400 cursor-not-allowed'
             }`}>
-              <Upload className="w-5 h-5" />
+              {uploadingFile ? (
+                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              ) : (
+                <Upload className="w-5 h-5" />
+              )}
               <span>{uploadingFile ? 'Processing...' : 'Upload PDF'}</span>
               <input
                 type="file"
@@ -172,7 +177,7 @@ export function PerformanceManagement({
 
         {uploadingFile && (
           <div className="mt-4 flex items-center gap-3 text-indigo-600">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
             <span>AI is analyzing the performance review...</span>
           </div>
         )}

@@ -38,6 +38,9 @@ export function PayrollManagement({
   );
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [processingEmployees, setProcessingEmployees] = useState<number[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [updatingRecordId, setUpdatingRecordId] = useState<number | null>(null);
 
   const getMonthRecords = () => {
     return payrollRecords.filter(record => record.month === selectedMonth);
@@ -54,43 +57,51 @@ export function PayrollManagement({
   };
 
   const processPayroll = (employeeIds: number[]) => {
-    const newRecords: PayrollRecord[] = employeeIds.map(empId => {
-      const employee = employees.find(e => e.id === empId)!;
-      const bonus = Math.floor(Math.random() * 1000) + 500;
-      const deductions = Math.floor(employee.salary * 0.15); // Tax and benefits
-      const netPay = employee.salary + bonus - deductions;
+    setIsProcessing(true);
+    setTimeout(() => {
+      const newRecords: PayrollRecord[] = employeeIds.map(empId => {
+        const employee = employees.find(e => e.id === empId)!;
+        const bonus = Math.floor(Math.random() * 1000) + 500;
+        const deductions = Math.floor(employee.salary * 0.15); // Tax and benefits
+        const netPay = employee.salary + bonus - deductions;
 
-      return {
-        id: Math.max(0, ...payrollRecords.map(r => r.id)) + empId,
-        employeeId: empId,
-        employeeName: employee.name,
-        month: selectedMonth,
-        baseSalary: employee.salary,
-        bonus,
-        deductions,
-        netPay,
-        status: 'Processed',
-        paymentDate: new Date(new Date(selectedMonth).setMonth(new Date(selectedMonth).getMonth() + 1, 1)).toISOString().split('T')[0],
-      };
-    });
+        return {
+          id: Math.max(0, ...payrollRecords.map(r => r.id)) + empId,
+          employeeId: empId,
+          employeeName: employee.name,
+          month: selectedMonth,
+          baseSalary: employee.salary,
+          bonus,
+          deductions,
+          netPay,
+          status: 'Processed',
+          paymentDate: new Date(new Date(selectedMonth).setMonth(new Date(selectedMonth).getMonth() + 1, 1)).toISOString().split('T')[0],
+        };
+      });
 
-    const otherRecords = payrollRecords.filter(
-      r => !employeeIds.includes(r.employeeId) || r.month !== selectedMonth
-    );
+      const otherRecords = payrollRecords.filter(
+        r => !employeeIds.includes(r.employeeId) || r.month !== selectedMonth
+      );
 
-    setPayrollRecords([...otherRecords, ...newRecords]);
-    setProcessingEmployees([]);
-    setShowProcessModal(false);
+      setPayrollRecords([...otherRecords, ...newRecords]);
+      setProcessingEmployees([]);
+      setShowProcessModal(false);
+      setIsProcessing(false);
+    }, 1000);
   };
 
   const updatePayrollStatus = (recordId: number, status: PayrollRecord['status']) => {
-    setPayrollRecords(
-      payrollRecords.map(record =>
-        record.id === recordId
-          ? { ...record, status, paymentDate: status === 'Paid' ? new Date().toISOString().split('T')[0] : record.paymentDate }
-          : record
-      )
-    );
+    setUpdatingRecordId(recordId);
+    setTimeout(() => {
+      setPayrollRecords(
+        payrollRecords.map(record =>
+          record.id === recordId
+            ? { ...record, status, paymentDate: status === 'Paid' ? new Date().toISOString().split('T')[0] : record.paymentDate }
+            : record
+        )
+      );
+      setUpdatingRecordId(null);
+    }, 500);
   };
 
   const getStatusColor = (status: string) => {
@@ -137,14 +148,30 @@ export function PayrollManagement({
         <div className="flex gap-3">
           <button
             onClick={() => setShowProcessModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            disabled={isProcessing}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <DollarSign className="w-5 h-5" />
-            Process Payroll
+            {isProcessing ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            ) : (
+              <DollarSign className="w-5 h-5" />
+            )}
+            <span>{isProcessing ? 'Processing...' : 'Process Payroll'}</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-            <Download className="w-5 h-5" />
-            Export
+          <button 
+            disabled={isExporting}
+            onClick={() => {
+              setIsExporting(true);
+              setTimeout(() => setIsExporting(false), 1000);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? (
+              <div className="w-5 h-5 border-2 border-gray-700 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            ) : (
+              <Download className="w-5 h-5" />
+            )}
+            <span>{isExporting ? 'Exporting...' : 'Export'}</span>
           </button>
         </div>
       </div>
@@ -229,16 +256,24 @@ export function PayrollManagement({
                     {record.status === 'Processed' && (
                       <button
                         onClick={() => updatePayrollStatus(record.id, 'Paid')}
-                        className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                        disabled={updatingRecordId === record.id}
+                        className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                       >
+                        {updatingRecordId === record.id ? (
+                          <div className="w-3 h-3 border-2 border-green-700 border-t-transparent rounded-full animate-spin" />
+                        ) : null}
                         Mark Paid
                       </button>
                     )}
                     {record.status === 'Pending' && (
                       <button
                         onClick={() => updatePayrollStatus(record.id, 'Processed')}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                        disabled={updatingRecordId === record.id}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                       >
+                        {updatingRecordId === record.id ? (
+                          <div className="w-3 h-3 border-2 border-blue-700 border-t-transparent rounded-full animate-spin" />
+                        ) : null}
                         Process
                       </button>
                     )}
@@ -318,10 +353,17 @@ export function PayrollManagement({
                     }
                     processPayroll(processingEmployees);
                   }}
-                  disabled={processingEmployees.length === 0}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  disabled={processingEmployees.length === 0 || isProcessing}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Process {processingEmployees.length} Employee{processingEmployees.length !== 1 ? 's' : ''}
+                  {isProcessing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <span>{`Process ${processingEmployees.length} Employee${processingEmployees.length !== 1 ? 's' : ''}`}</span>
+                  )}
                 </button>
                 <button
                   onClick={() => {

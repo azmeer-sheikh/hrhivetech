@@ -34,6 +34,7 @@ export function AttendanceTracking({
   const [selectedDate, setSelectedDate] = useState(today);
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [timeModalType, setTimeModalType] = useState<'checkin' | 'checkout'>('checkin');

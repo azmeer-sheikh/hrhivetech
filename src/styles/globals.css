@@ -49,6 +49,45 @@ body {
   border-radius: 10px;
 }
 
+/* Smooth Spinner Animation */
+@keyframes spin-smooth {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin-smooth 1s linear infinite !important;
+  will-change: transform;
+  transform-origin: center;
+}
+
+/* Smooth transition for loading state changes */
+.transition-loading {
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+}
+
+/* Optimized spinner styling */
+.spinner {
+  animation: spin-smooth 1s linear infinite;
+  will-change: transform;
+}
+
+/* Button with loader - smooth appearance */
+button[disabled] .spinner {
+  display: inline-block;
+}
+
+/* Ensure smooth GPU acceleration */
+@media (prefers-reduced-motion: no-preference) {
+  .animate-spin {
+    animation: spin-smooth 1s linear infinite;
+  }
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }

@@ -50,6 +50,8 @@ export function LeaveManagement({
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [leaveType, setLeaveType] = useState<LeaveRequest['leaveType']>('Annual');
   const [startDate, setStartDate] = useState('');
@@ -192,6 +194,7 @@ export function LeaveManagement({
     };
 
     try {
+      setSubmitting(true);
       await leaveAPI.create(payload);
       await loadLeaves();
       // Refresh balance after creating leave
@@ -205,12 +208,15 @@ export function LeaveManagement({
       setReason('');
     } catch (err) {
       console.error('Failed to create leave', err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleApprove = async (leaveId: string | number | undefined) => {
     if (!leaveId) return;
     try {
+      setLoading(true);
       // Find the leave request to get employee ID
       const leave = leaveRequests.find(l => String(l._id || l.id) === String(leaveId));
       await leaveAPI.approve(String(leaveId), 'Approved');
@@ -221,12 +227,15 @@ export function LeaveManagement({
       }
     } catch (err) {
       console.error('Failed to approve leave', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleReject = async (leaveId: string | number | undefined) => {
     if (!leaveId) return;
     try {
+      setLoading(true);
       // Find the leave request to get employee ID
       const leave = leaveRequests.find(l => String(l._id || l.id) === String(leaveId));
       await leaveAPI.reject(String(leaveId), 'Rejected by admin');
@@ -237,6 +246,8 @@ export function LeaveManagement({
       }
     } catch (err) {
       console.error('Failed to reject leave', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -279,10 +290,20 @@ export function LeaveManagement({
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">Apply Leave</span>
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <span className="font-medium">Processing...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                <span className="font-medium">Apply Leave</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -400,17 +421,27 @@ export function LeaveManagement({
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleApprove(leave._id || leave.id)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          disabled={loading}
+                          className="p-2 text-green-600 hover:bg-green-50 disabled:text-green-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                           title="Approve"
                         >
-                          <CheckCircle className="w-5 h-5" />
+                          {loading ? (
+                            <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                          ) : (
+                            <CheckCircle className="w-5 h-5" />
+                          )}
                         </button>
                         <button
                           onClick={() => handleReject(leave._id || leave.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          disabled={loading}
+                          className="p-2 text-red-600 hover:bg-red-50 disabled:text-red-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                           title="Reject"
                         >
-                          <XCircle className="w-5 h-5" />
+                          {loading ? (
+                            <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                          ) : (
+                            <XCircle className="w-5 h-5" />
+                          )}
                         </button>
                       </div>
                     )}
@@ -661,16 +692,25 @@ export function LeaveManagement({
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-5 py-2.5 bg-white !text-slate-700 hover:bg-slate-50 transition-colors border-l-4 border-slate-400 font-semibold text-sm uppercase tracking-wide shadow-sm"
+                disabled={submitting}
+                className="flex-1 px-5 py-2.5 bg-white !text-slate-700 hover:bg-slate-50 disabled:bg-slate-50 disabled:cursor-not-allowed transition-colors border-l-4 border-slate-400 font-semibold text-sm uppercase tracking-wide shadow-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 onClick={handleSubmitLeave}
-                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 !text-white hover:from-emerald-700 hover:to-emerald-800 transition-all border-l-4 border-emerald-800 font-semibold text-sm uppercase tracking-wide shadow-lg"
+                disabled={submitting}
+                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 !text-white hover:from-emerald-700 hover:to-emerald-800 disabled:from-emerald-400 disabled:to-emerald-500 disabled:cursor-not-allowed transition-all border-l-4 border-emerald-800 font-semibold text-sm uppercase tracking-wide shadow-lg flex items-center justify-center gap-2"
               >
-                Submit Request
+                {submitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <span>Submit Request</span>
+                )}
               </button>
             </div>
           </div>

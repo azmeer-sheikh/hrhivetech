@@ -10,6 +10,10 @@ export function UserManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -49,35 +53,44 @@ export function UserManagement() {
       return;
     }
 
-    addUser(formData);
-    toast.success('User added successfully');
-    setShowAddDialog(false);
-    setFormData({
-      username: '',
-      name: '',
-      email: '',
-      role: 'Admin',
-      department: '',
-      password: '',
-    });
+    setIsSubmittingAdd(true);
+    setTimeout(() => {
+      addUser(formData);
+      toast.success('User added successfully');
+      setShowAddDialog(false);
+      setFormData({
+        username: '',
+        name: '',
+        email: '',
+        role: 'Admin',
+        department: '',
+        password: '',
+      });
+      setIsSubmittingAdd(false);
+    }, 500);
   };
 
   const handleEditUser = () => {
     if (!selectedUser) return;
 
-    updateUser(selectedUser.id, {
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      department: formData.department,
-    });
-    
-    toast.success('User updated successfully');
-    setShowEditDialog(false);
-    setSelectedUser(null);
+    setIsSubmittingEdit(true);
+    setTimeout(() => {
+      updateUser(selectedUser.id, {
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        department: formData.department,
+      });
+      
+      toast.success('User updated successfully');
+      setShowEditDialog(false);
+      setSelectedUser(null);
+      setIsSubmittingEdit(false);
+    }, 500);
   };
 
   const handleDeleteUser = (userId: string) => {
+    setIsDeletingId(userId);
     let dismissed = false;
 
     toast.custom(
@@ -97,6 +110,7 @@ export function UserManagement() {
                 onClick={() => {
                   if (!dismissed) {
                     dismissed = true;
+                    setIsDeletingId(null);
                     toast.dismiss(t);
                   }
                 }}
@@ -114,14 +128,22 @@ export function UserManagement() {
                     toast.success('User deleted successfully', {
                       position: 'top-center'
                     });
+                    setIsDeletingId(null);
                   }
                 }}
-                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg flex items-center justify-center gap-2"
                 style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
               >
-                Delete
+                {isDeletingId === userId ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete</span>
+                )}
               </button>
             </div>
           </div>
@@ -144,19 +166,23 @@ export function UserManagement() {
       return;
     }
 
-    const success = changePassword(
-      selectedUser.id,
-      passwordData.currentPassword,
-      passwordData.newPassword
-    );
+    setIsSubmittingPassword(true);
+    setTimeout(() => {
+      const success = changePassword(
+        selectedUser.id,
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
 
-    if (success) {
-      toast.success('Password changed successfully');
-      setShowPasswordDialog(false);
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } else {
-      toast.error('Current password is incorrect');
-    }
+      if (success) {
+        toast.success('Password changed successfully');
+        setShowPasswordDialog(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        toast.error('Current password is incorrect');
+      }
+      setIsSubmittingPassword(false);
+    }, 500);
   };
 
   const openEditDialog = (u: any) => {
@@ -203,10 +229,20 @@ export function UserManagement() {
             </div>
             <button
               onClick={() => setShowAddDialog(true)}
-              className="bg-white hover:bg-blue-50 !text-blue-700 px-6 py-3 rounded-lg transition-all duration-300 flex items-center gap-2 font-semibold shadow-lg"
+              disabled={isSubmittingAdd || isSubmittingEdit || isSubmittingPassword}
+              className="bg-white hover:bg-blue-50 disabled:bg-gray-100 disabled:cursor-not-allowed !text-blue-700 px-6 py-3 rounded-lg transition-all duration-300 flex items-center gap-2 font-semibold shadow-lg"
             >
-              <UserPlus className="w-5 h-5" />
-              Add User
+              {isSubmittingAdd ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-blue-700 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <span>Adding...</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-5 h-5" />
+                  <span>Add User</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -264,25 +300,31 @@ export function UserManagement() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openPasswordDialog(u)}
-                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        disabled={isSubmittingPassword || isDeletingId === u.id}
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Change Password"
                       >
                         <Key className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openEditDialog(u)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        disabled={isSubmittingEdit || isDeletingId === u.id}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Edit User"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteUser(u.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         title="Delete User"
-                        disabled={users.filter(usr => usr.role === 'Super Admin').length === 1 && u.role === 'Super Admin'}
+                        disabled={users.filter(usr => usr.role === 'Super Admin').length === 1 && u.role === 'Super Admin' || isDeletingId === u.id}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {isDeletingId === u.id ? (
+                          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -368,9 +410,13 @@ export function UserManagement() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleAddUser}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 !text-white py-3 rounded-lg font-semibold transition-colors"
+                  disabled={isSubmittingAdd}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 !text-white py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Add User
+                  {isSubmittingAdd ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : null}
+                  <span>{isSubmittingAdd ? 'Adding...' : 'Add User'}</span>
                 </button>
                 <button
                   onClick={() => setShowAddDialog(false)}
@@ -449,13 +495,18 @@ export function UserManagement() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleEditUser}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 !text-white py-3 rounded-lg font-semibold transition-colors"
+                  disabled={isSubmittingEdit}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed !text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  Save Changes
+                  {isSubmittingEdit ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : null}
+                  <span>{isSubmittingEdit ? 'Saving...' : 'Save Changes'}</span>
                 </button>
                 <button
                   onClick={() => setShowEditDialog(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 !text-gray-700 py-3 rounded-lg font-semibold transition-colors"
+                  disabled={isSubmittingEdit}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-200 disabled:cursor-not-allowed !text-gray-700 py-3 rounded-lg font-semibold transition-colors"
                 >
                   Cancel
                 </button>
@@ -536,13 +587,18 @@ export function UserManagement() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleChangePassword}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 !text-white py-3 rounded-lg font-semibold transition-colors"
+                  disabled={isSubmittingPassword}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-500 disabled:cursor-not-allowed !text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  Change Password
+                  {isSubmittingPassword ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : null}
+                  <span>{isSubmittingPassword ? 'Changing...' : 'Change Password'}</span>
                 </button>
                 <button
                   onClick={() => setShowPasswordDialog(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 !text-gray-700 py-3 rounded-lg font-semibold transition-colors"
+                  disabled={isSubmittingPassword}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-200 disabled:cursor-not-allowed !text-gray-700 py-3 rounded-lg font-semibold transition-colors"
                 >
                   Cancel
                 </button>

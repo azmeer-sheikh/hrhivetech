@@ -29,6 +29,8 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
   const [showModal, setShowModal] = useState(false);
   const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingId, setIsDeletingId] = useState<string | number | null>(null);
   const [formData, setFormData] = useState({
     candidateName: '',
     email: '',
@@ -82,6 +84,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     const payload = {
       candidateName: formData.candidateName,
@@ -110,6 +113,8 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
       resetForm();
     } catch (err) {
       console.error('Failed to save interview', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -152,6 +157,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
   const handleDelete = async (id?: string | number) => {
     if (!id) return;
 
+    setIsDeletingId(id);
     let dismissed = false;
 
     toast.custom(
@@ -168,6 +174,7 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                 onClick={() => {
                   if (!dismissed) {
                     dismissed = true;
+                    setIsDeletingId(null);
                     toast.dismiss(t);
                   }
                 }}
@@ -191,15 +198,24 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
                       toast.error('Failed to delete interview', {
                         position: 'top-center'
                       });
+                    } finally {
+                      setIsDeletingId(null);
                     }
                   }
                 }}
-                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg flex items-center justify-center gap-2"
                 style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
               >
-                Delete
+                {isDeletingId === id ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete</span>
+                )}
               </button>
             </div>
           </div>
@@ -372,16 +388,26 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
               <div className="flex gap-2 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => handleEdit(interview)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                  disabled={isSubmitting || isDeletingId === (interview._id || interview.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  {isSubmitting && editingInterview?.id === interview.id ? (
+                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : (
+                    <Edit2 className="w-4 h-4" />
+                  )}
                   Edit
                 </button>
                 <button
                   onClick={() => handleDelete(interview._id || interview.id)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  disabled={isDeletingId === (interview._id || interview.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {isDeletingId === (interview._id || interview.id) ? (
+                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                   Delete
                 </button>
               </div>
@@ -600,7 +626,8 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
               <button
                 type="button"
                 onClick={resetForm}
-                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                disabled={isSubmitting}
+                className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ borderRadius: '5px' }}
               >
                 Cancel
@@ -608,10 +635,18 @@ export function InterviewManagement({ interviews, setInterviews }: InterviewMana
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="flex-1 px-5 py-2.5 text-white hover:bg-purple-700 transition-colors shadow-lg font-bold text-sm"
+                disabled={isSubmitting}
+                className="flex-1 px-5 py-2.5 text-white hover:bg-purple-700 transition-colors shadow-lg font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ borderRadius: '5px', backgroundColor: '#9333ea' }}
               >
-                {editingInterview ? 'Update Interview' : 'Schedule'}
+                {isSubmitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>{isSubmitting ? 'Saving...' : (editingInterview ? 'Update Interview' : 'Schedule')}</span>
+                  </>
+                ) : (
+                  <span>{editingInterview ? 'Update Interview' : 'Schedule'}</span>
+                )}
               </button>
             </div>
           </div>

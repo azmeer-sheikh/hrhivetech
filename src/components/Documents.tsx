@@ -39,6 +39,7 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
   const [documentType, setDocumentType] = useState<Document['documentType']>('Contract');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -135,6 +136,7 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
     if (!id) return;
 
     let dismissed = false;
+    setDeleting(String(id));
 
     toast.custom(
       (t) => (
@@ -150,6 +152,7 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                 onClick={() => {
                   if (!dismissed) {
                     dismissed = true;
+                    setDeleting(null);
                     toast.dismiss(t);
                   }
                 }}
@@ -173,15 +176,25 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                       toast.error('Failed to delete document', {
                         position: 'top-center'
                       });
+                    } finally {
+                      setDeleting(null);
                     }
                   }
                 }}
-                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg"
-                style={{ borderRadius: '5px', backgroundColor: '#dc2626', color: '#ffffff' }}
+                className="flex-1 px-5 py-2.5 text-sm font-bold transition-colors shadow-lg flex items-center justify-center gap-2"
+                style={{ borderRadius: '5px', backgroundColor: deleting === String(id) ? '#b91c1c' : '#dc2626', color: '#ffffff' }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = deleting === String(id) ? '#b91c1c' : '#dc2626'}
+                disabled={deleting === String(id)}
               >
-                Delete
+                {deleting === String(id) ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete</span>
+                )}
               </button>
             </div>
           </div>
@@ -225,10 +238,15 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+            disabled={uploading}
+            className="flex items-center gap-2 px-5 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
-            <Upload className="w-5 h-5" />
-            <span className="font-medium">Upload Document</span>
+            {uploading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            ) : (
+              <Upload className="w-5 h-5" />
+            )}
+            <span className="font-medium">{uploading ? 'Uploading...' : 'Upload Document'}</span>
           </button>
         </div>
       </div>
@@ -287,10 +305,15 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                 </button>
                 <button
                   onClick={() => deleteDocument(doc._id || doc.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  disabled={deleting === String(doc._id || doc.id)}
+                  className="p-2 text-red-600 hover:bg-red-50 disabled:text-red-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                   title="Delete"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {deleting === String(doc._id || doc.id) ? (
+                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -530,10 +553,18 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="flex-1 px-5 py-2.5 text-white hover:bg-blue-700 transition-colors shadow-lg font-bold text-sm"
-                style={{ borderRadius: '5px', backgroundColor: '#2563eb' }}
+                disabled={uploading}
+                className="flex-1 px-5 py-2.5 text-white hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors shadow-lg font-bold text-sm flex items-center justify-center gap-2"
+                style={{ borderRadius: '5px', backgroundColor: uploading ? '#60a5fa' : '#2563eb' }}
               >
-                Upload
+                {uploading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <span>Upload</span>
+                )}
               </button>
             </div>
           </div>

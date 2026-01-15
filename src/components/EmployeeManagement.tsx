@@ -34,6 +34,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 9; // 3x3 grid
   const [formData, setFormData] = useState({
@@ -99,7 +100,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     e.preventDefault();
     
     try {
-      setLoading(true);
+      setSubmitting(true);
       setError(null);
 
       const submitData = {
@@ -108,20 +109,22 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         email: formData.email,
         phone: formData.phone,
         employeeCode: formData.employeeCode,
-        dateOfBirth: formData.dateOfBirth,
+        dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender,
         position: formData.position,
         department: formData.department,
         salary: parseFloat(formData.salary),
-        joiningDate: formData.joiningDate,
+        joiningDate: formData.joiningDate || undefined,
         status: formData.status,
       };
 
       if (editingEmployee && (editingEmployee._id || editingEmployee.id)) {
         const empId = editingEmployee._id || editingEmployee.id;
         await employeeAPI.update(String(empId), submitData);
+        toast.success('Employee updated successfully', { position: 'top-center' });
       } else {
         await employeeAPI.create(submitData);
+        toast.success('Employee added successfully', { position: 'top-center' });
       }
 
       // Reload employees from API
@@ -147,8 +150,20 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       setImagePreview(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save employee');
+      toast.error(err instanceof Error ? err.message : 'Failed to save employee', { position: 'top-center' });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
+    }
+  };
+
+  const formatDateForInput = (date: string | Date | undefined): string => {
+    if (!date) return '';
+    try {
+      const d = new Date(date);
+      // Return in YYYY-MM-DD format for input[type="date"]
+      return d.toISOString().split('T')[0];
+    } catch {
+      return '';
     }
   };
 
@@ -160,12 +175,12 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       email: employee.email,
       phone: employee.phone,
       employeeCode: employee.employeeCode || '',
-      dateOfBirth: employee.dateOfBirth || '',
+      dateOfBirth: formatDateForInput(employee.dateOfBirth),
       gender: employee.gender || '',
       position: employee.position,
       department: employee.department,
       salary: employee.salary.toString(),
-      joiningDate: employee.joiningDate || '',
+      joiningDate: formatDateForInput(employee.joiningDate),
       status: employee.status,
       imageUrl: employee.imageUrl,
     });
@@ -281,10 +296,20 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
             setImagePreview(null);
             setShowModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors"
         >
-          <Plus className="w-5 h-5" />
-          Add Employee
+          {loading ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <span>Processing...</span>
+            </>
+          ) : (
+            <>
+              <Plus className="w-5 h-5" />
+              <span>Add Employee</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -371,7 +396,8 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewingEmployee(employee)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    disabled={loading}
+                    className="p-2 text-blue-600 hover:bg-blue-50 disabled:text-blue-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                     title="View Details"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -381,14 +407,16 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                   </button>
                   <button
                     onClick={() => handleEdit(employee)}
-                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    disabled={loading}
+                    className="p-2 text-indigo-600 hover:bg-indigo-50 disabled:text-indigo-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                     title="Edit Employee"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(employee._id || employee.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    disabled={loading}
+                    className="p-2 text-red-600 hover:bg-red-50 disabled:text-red-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                     title="Delete Employee"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -528,11 +556,10 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 {/* Date of Birth */}
                 <div className="space-y-1.5">
                   <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
-                    Date of Birth <span className="!text-red-500">*</span>
+                    Date of Birth
                   </label>
                   <input
                     type="date"
-                    required
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                     className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -614,11 +641,10 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 {/* Join Date */}
                 <div className="space-y-1.5">
                   <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
-                    Join Date <span className="!text-red-500">*</span>
+                    Join Date
                   </label>
                   <input
                     type="date"
-                    required
                     value={formData.joiningDate}
                     onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                     className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -711,15 +737,24 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 transition-colors border-2 border-gray-200 font-medium"
+                  disabled={submitting}
+                  className="flex-1 px-6 py-3.5 bg-white !text-gray-700 rounded-xl hover:bg-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors border-2 border-gray-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3.5 bg-blue-600 !text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30 font-medium"
+                  disabled={submitting}
+                  className="flex-1 px-6 py-3.5 bg-blue-600 !text-white rounded-xl hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-600/30 font-medium flex items-center justify-center gap-2"
                 >
-                  {editingEmployee ? 'Update Employee' : 'Add Employee'}
+                  {submitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                      <span>{editingEmployee ? 'Updating...' : 'Adding...'}</span>
+                    </>
+                  ) : (
+                    <span>{editingEmployee ? 'Update Employee' : 'Add Employee'}</span>
+                  )}
                 </button>
               </div>
             </form>

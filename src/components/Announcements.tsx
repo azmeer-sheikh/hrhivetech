@@ -55,6 +55,8 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<Announcement['category']>('General');
   const [isPinned, setIsPinned] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadAnnouncements();
@@ -98,6 +100,7 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
     };
 
     try {
+      setSubmitting(true);
       await announcementAPI.create(payload);
       await loadAnnouncements();
       // Reset form
@@ -114,6 +117,8 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
       toast.error('Failed to publish announcement', {
         position: 'top-center'
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -185,10 +190,13 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
   const handlePin = async (id?: number | string, isPinnedValue?: boolean) => {
     if (!id) return;
     try {
+      setLoading(true);
       await announcementAPI.update(String(id), { isPinned: isPinnedValue });
       await loadAnnouncements();
     } catch (err) {
       console.error('Failed to pin announcement', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -224,10 +232,20 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">New Announcement</span>
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <span className="font-medium">Processing...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                <span className="font-medium">New Announcement</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -269,18 +287,24 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => togglePin(announcement._id || announcement.id, announcement.isPinned)}
+                  disabled={loading}
                   className={`p-2 rounded-lg transition-colors ${
                     announcement.isPinned 
-                      ? 'text-yellow-600 bg-yellow-100 hover:bg-yellow-200' 
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      ? 'text-yellow-600 bg-yellow-100 hover:bg-yellow-200 disabled:bg-yellow-50 disabled:text-yellow-400' 
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:hover:bg-transparent disabled:text-gray-300'
                   }`}
                   title={announcement.isPinned ? 'Unpin' : 'Pin'}
                 >
-                  <Pin className="w-5 h-5" />
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  ) : (
+                    <Pin className="w-5 h-5" />
+                  )}
                 </button>
                 <button
                   onClick={() => deleteAnnouncement(announcement._id || announcement.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  disabled={loading}
+                  className="p-2 text-red-600 hover:bg-red-50 disabled:text-red-300 disabled:hover:bg-transparent rounded-lg transition-colors"
                   title="Delete"
                 >
                   <Trash2 className="w-5 h-5" />
@@ -395,17 +419,26 @@ export function Announcements({ announcements, setAnnouncements }: Announcements
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors font-semibold text-sm"
+                  disabled={submitting}
+                  className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
                   style={{ borderRadius: '5px' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-2.5 text-white hover:bg-amber-700 transition-colors shadow-lg font-bold text-sm"
-                  style={{ borderRadius: '5px', backgroundColor: '#d97706' }}
+                  disabled={submitting}
+                  className="flex-1 px-5 py-2.5 text-white hover:bg-amber-700 disabled:bg-amber-500 disabled:cursor-not-allowed transition-colors shadow-lg font-bold text-sm flex items-center justify-center gap-2"
+                  style={{ borderRadius: '5px', backgroundColor: submitting ? '#b45309' : '#d97706' }}
                 >
-                  Publish
+                  {submitting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                      <span>Publishing...</span>
+                    </>
+                  ) : (
+                    <span>Publish</span>
+                  )}
                 </button>
               </div>
             </form>
