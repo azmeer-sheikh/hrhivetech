@@ -165,19 +165,34 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Serve frontend static files in production
-if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../../dist');
+// Serve frontend static files - check if dist folder exists
+const frontendPath = path.join(__dirname, '../../dist');
+const fs = require('fs');
+
+if (fs.existsSync(frontendPath)) {
+  console.log('✅ Serving frontend from:', frontendPath);
   app.use(express.static(frontendPath));
   
   // Handle client-side routing - send all non-API requests to index.html
   app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
+      if (err) {
+        console.error('Error serving index.html:', err);
+        res.status(404).json({ message: 'Frontend not found' });
+      }
+    });
   });
 } else {
-  // 404 handler for development
+  console.warn('⚠️  Frontend dist folder not found at:', frontendPath);
+  console.warn('⚠️  Running in API-only mode');
+  
+  // 404 handler when frontend not built
   app.use((req, res) => {
-    res.status(404).json({ message: 'Route not found' });
+    res.status(404).json({ 
+      message: 'Route not found',
+      note: 'Frontend not built. Run "npm run build" to build the frontend.',
+      availableEndpoints: ['/api/auth', '/api/employees', '/api/attendance', '/health']
+    });
   });
 }
 
