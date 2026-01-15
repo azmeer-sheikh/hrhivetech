@@ -3,8 +3,8 @@ nixPkgs = ['nodejs_20']
 
 [phases.install]
 cmds = [
-  'npm ci --prefix backend',
-  'npm ci'
+  'npm install',
+  'npm install --prefix backend'
 ]
 
 [phases.build]
@@ -13,4 +13,4 @@ cmds = [
 ]
 
 [start]
-cmd = 'node backend/src/server.js'
+cmd = 'npm run start:production'

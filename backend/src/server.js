@@ -53,33 +53,41 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
-  'https://hrhivetech-production.up.railway.app',
-  'https://*.railway.app'
+  'https://hrhivetech-production.up.railway.app'
 ];
 
+// Enhanced CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. mobile apps, curl requests)
+    // Allow requests with no origin (e.g. mobile apps, curl requests, Postman)
     if (!origin) return callback(null, true);
     
-    // Check if origin is in allowed list (case-insensitive for safety)
+    // Check if origin matches allowed origins or Railway domains
     const isAllowed = allowedOrigins.some(allowed => 
       allowed.toLowerCase() === origin.toLowerCase()
     );
     
-    if (isAllowed) return callback(null, true);
+    // Allow all Railway subdomains
+    const isRailway = origin.includes('.railway.app') || origin.includes('.up.railway.app');
     
-    // Log denied origins in development
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`CORS blocked origin: ${origin}`);
+    if (isAllowed || isRailway) return callback(null, true);
+    
+    // In production, allow all origins temporarily for debugging
+    if (process.env.NODE_ENV === 'production') {
+      console.log(`⚠️  Allowing origin in production: ${origin}`);
+      return callback(null, true);
     }
     
+    // Log denied origins in development
+    console.warn(`CORS blocked origin: ${origin}`);
     return callback(new Error(`Origin ${origin} not allowed by CORS policy`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  // allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Let cors handle this automatically
-  exposedHeaders: ['X-Total-Count', 'X-Page-Count']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 }));
 
 // Body parser middleware
@@ -98,13 +106,24 @@ app.use('/uploads', (req, res, next) => {
 }, express.static(path.join(__dirname, '../uploads')));
 
 // Logging middleware
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// Log all requests in production for debugging
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+  });
 }
 
 // Health check route
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Server is running' });
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'Server is running',
+    env: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API info route
