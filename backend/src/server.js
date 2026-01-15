@@ -52,7 +52,9 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001'
+  'http://127.0.0.1:3001',
+  'https://hrhivetech-production.up.railway.app',
+  'https://*.railway.app'
 ];
 
 app.use(cors({
@@ -144,10 +146,21 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  const frontendPath = path.join(__dirname, '../../dist');
+  app.use(express.static(frontendPath));
+  
+  // Handle client-side routing - send all non-API requests to index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // 404 handler for development
+  app.use((req, res) => {
+    res.status(404).json({ message: 'Route not found' });
+  });
+}
 
 // Error handling middleware
 app.use(errorHandler);
