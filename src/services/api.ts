@@ -1,7 +1,7 @@
 // API Configuration and Services for HR Portal Frontend
 // This file handles all backend API communication
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://hrhivetech-production.up.railway.app/api';
 
 // Debug logging for development
 const isDevelopment = import.meta.env.DEV;
