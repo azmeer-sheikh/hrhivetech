@@ -1,6 +1,7 @@
 const Announcement = require("../models/Announcement");
 const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
+const generateAnnouncementEmail = require("../utils/emailTemplates/announcementTemplate");
 const {
   asyncHandler,
   paginate,
@@ -110,38 +111,78 @@ exports.createAnnouncement = asyncHandler(async (req, res) => {
 
   const announcement = await Announcement.create(announcementData);
 
-  // Send email to all users
+  // Send email to employees based on target audience
   try {
-    let emails;
+    let emails = [];
+    const Employee = require("../models/Employee");
     
     // If testEmail is provided, only send to that email
     if (testEmail) {
       emails = [testEmail];
     } else {
-      const users = await User.find({ isActive: true }).select('email');
-      emails = users.map(user => user.email).filter(email => email);
+      let query = {};
+
+      // Filter based on target audience
+      if (announcement.targetAudience === 'All Employees') {
+        // Send to all employees
+        const employees = await Employee.find({ isActive: true }).select('email firstName lastName');
+        emails = employees.map(emp => emp.email).filter(email => email);
+      } else if (announcement.targetAudience === 'Specific Department' && announcement.departments.length > 0) {
+        // Send to specific departments
+        const employees = await Employee.find({
+          department: { $in: announcement.departments },
+          isActive: true
+        }).select('email firstName lastName');
+        emails = employees.map(emp => emp.email).filter(email => email);
+      } else if (announcement.targetAudience === 'Specific Role' && announcement.roles.length > 0) {
+        // Send to specific roles (through User model)
+        const users = await User.find({
+          role: { $in: announcement.roles },
+          isActive: true
+        }).select('email');
+        emails = users.map(user => user.email).filter(email => email);
+      } else if (announcement.targetAudience === 'Management Only') {
+        // Send to management roles
+        const users = await User.find({
+          role: { $in: ['admin', 'hr', 'manager'] },
+          isActive: true
+        }).select('email');
+        emails = users.map(user => user.email).filter(email => email);
+      }
     }
 
     if (emails.length > 0) {
-      const message = `
+      // Generate modern HTML email template
+      const portalUrl = process.env.FRONTEND_URL || 'https://hr-portal.com';
+      const htmlContent = generateAnnouncementEmail(announcement, portalUrl);
+
+      const plainMessage = `
 New Announcement: ${announcement.title}
 
 Priority: ${announcement.priority}
 Type: ${announcement.type}
+Date: ${new Date(announcement.publishDate).toLocaleDateString()}
+${announcement.targetAudience !== 'All Employees' ? `Target Audience: ${announcement.targetAudience}` : ''}
 
 ${announcement.content}
 
-Please log in to the HR Portal to view more details.
+${announcement.attachments.length > 0 ? `\nAttachments:\n${announcement.attachments.map(att => `- ${att.fileName}: ${att.fileUrl}`).join('\n')}` : ''}
+
+Please log in to the HR Portal to view more details: ${portalUrl}/announcements/${announcement._id}
       `;
 
       await sendEmail({
         bcc: emails,
-        subject: `HR Portal Announcement: ${announcement.title}`,
-        message,
+        subject: `[${announcement.priority}] ${announcement.title} - HR Portal Announcement`,
+        message: plainMessage,
+        html: htmlContent,
       });
+
+      console.log(`Announcement email sent to ${emails.length} employees`);
     }
   } catch (error) {
     console.error("Email notification failed:", error);
+    // Don't fail the request if email fails
   }
 
   res.status(201).json({

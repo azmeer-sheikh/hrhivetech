@@ -11,6 +11,9 @@ yarn-error.log
 .env.test
 .env.production
 
+# Google Service Account Credentials
+config/google-credentials.json
+
 # Logs
 logs/
 *.log
