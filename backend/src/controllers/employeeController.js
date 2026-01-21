@@ -15,11 +15,15 @@ exports.getEmployees = asyncHandler(async (req, res) => {
   let query = {};
   
   if (search) {
+    // Keyword search across common employee fields
     query.$or = [
       { firstName: { $regex: search, $options: 'i' } },
       { lastName: { $regex: search, $options: 'i' } },
       { email: { $regex: search, $options: 'i' } },
-      { employeeCode: { $regex: search, $options: 'i' } }
+      { employeeCode: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } },
+      { position: { $regex: search, $options: 'i' } },
+      { department: { $regex: search, $options: 'i' } }
     ];
   }
   

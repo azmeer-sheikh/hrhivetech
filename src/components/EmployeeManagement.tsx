@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin, Upload, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin, Upload, X, FileSpreadsheet, FileText } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { Pagination } from './Pagination';
 import { employeeAPI } from '../services/api';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Employee {
   _id?: string;
@@ -89,12 +92,88 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     }
   };
 
-  const filteredEmployees = employees.filter(emp =>
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.department.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const normalized = (v: any) => String(v || '').toLowerCase();
+  const filteredEmployees = employees.filter(emp => {
+    const term = normalized(searchTerm);
+    if (!term) return true;
+    return (
+      normalized(emp.name).includes(term) ||
+      normalized(emp.firstName).includes(term) ||
+      normalized(emp.lastName).includes(term) ||
+      normalized(emp.email).includes(term) ||
+      normalized(emp.phone).includes(term) ||
+      normalized(emp.employeeCode).includes(term) ||
+      normalized(emp.position).includes(term) ||
+      normalized(emp.department).includes(term)
+    );
+  });
+
+  const buildExportRows = (list: Employee[]) => {
+    return list.map((emp, idx) => ({
+      'Sr No': idx + 1,
+      'Name': emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+      'Email': emp.email,
+      'Mobile Number': emp.phone,
+      'Department': emp.department,
+      'Salary': emp.salary,
+    }));
+  };
+
+  const exportExcel = async () => {
+    try {
+      setLoading(true);
+      // Fetch full list (apply server-side search if provided) to ensure all records
+      const fullResp = await employeeAPI.getAll(1, 100000, searchTerm ? { search: searchTerm } : undefined);
+      const fullData = (fullResp as any)?.data || employees;
+      const formatted = fullData.map((emp: any, idx: number) => ({
+        'Sr No': idx + 1,
+        'Name': `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        'Email': emp.email,
+        'Mobile Number': emp.phone,
+        'Department': emp.department,
+        'Salary': emp.salary,
+      }));
+      const ws = XLSX.utils.json_to_sheet(formatted);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+      XLSX.writeFile(wb, 'employees.xlsx');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export Excel', { position: 'top-center' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportPDF = async () => {
+    try {
+      setLoading(true);
+      const fullResp = await employeeAPI.getAll(1, 100000, searchTerm ? { search: searchTerm } : undefined);
+      const fullData = (fullResp as any)?.data || employees;
+      const head = ['Sr No', 'Name', 'Email', 'Mobile Number', 'Department', 'Salary'];
+      const body = fullData.map((emp: any, idx: number) => [
+        String(idx + 1),
+        `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        emp.email,
+        emp.phone,
+        emp.department,
+        String(emp.salary),
+      ]);
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      doc.setFontSize(12);
+      autoTable(doc, {
+        head: [head],
+        body,
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [63, 81, 181] },
+        margin: { top: 40 },
+      });
+      doc.save('employees.pdf');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export PDF', { position: 'top-center' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,17 +409,39 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         </div>
       )}
 
-      {/* Search Bar */}
+      {/* Search + Export Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search employees by name, email, position, or department..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+        <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search by name, email, phone, position, department..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={exportExcel}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-emerald-400 disabled:cursor-not-allowed transition-colors"
+              title="Export Excel"
+            >
+              <FileSpreadsheet className="w-5 h-5" />
+              <span>Export Excel</span>
+            </button>
+            <button
+              onClick={exportPDF}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+              title="Export PDF"
+            >
+              <FileText className="w-5 h-5" />
+              <span>Export PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
