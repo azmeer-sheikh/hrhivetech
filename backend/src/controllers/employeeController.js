@@ -89,7 +89,7 @@ exports.createEmployee = asyncHandler(async (req, res) => {
     await employee.save();
   }
 
-  // Queue welcome email with 30-second delay
+  // Send welcome email (queue in dev, send immediately in production unless ENABLE_EMAIL_QUEUE=true)
   try {
     const welcomeEmailHtml = generateWelcomeEmail(employee);
     const emailOptions = {
@@ -99,13 +99,18 @@ exports.createEmployee = asyncHandler(async (req, res) => {
       message: `Welcome ${employee.firstName} ${employee.lastName}! We're excited to have you join our team.`
     };
 
-    // Add to job queue with 30-second delay
-    const jobId = addEmailJob(emailOptions, 30, `welcome-${employee._id}`);
-    
-    console.log(`✓ Welcome email queued for ${employee.email} (Job ID: ${jobId})`);
+    const shouldQueue = process.env.ENABLE_EMAIL_QUEUE === 'true' && process.env.NODE_ENV !== 'production';
+
+    if (shouldQueue) {
+      const jobId = addEmailJob(emailOptions, 30, `welcome-${employee._id}`);
+      console.log(`✓ Welcome email queued for ${employee.email} (Job ID: ${jobId})`);
+    } else {
+      await sendEmail(emailOptions);
+      console.log(`✓ Welcome email sent immediately to ${employee.email}`);
+    }
   } catch (error) {
-    console.error('Failed to queue welcome email:', error.message);
-    // Don't fail the employee creation if queuing fails
+    console.error('Failed to send welcome email:', error.message);
+    // Don't fail the employee creation if email sending fails
   }
 
   res.status(201).json({
