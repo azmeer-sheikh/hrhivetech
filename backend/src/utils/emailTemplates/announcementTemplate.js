@@ -208,20 +208,16 @@ const generateAnnouncementEmail = (announcement, portalUrl) => {
                     </table>
                   </div>
                   
-                  <!-- HR Portal Logo/Title -->
-                  <h3
-                    style="
-                      margin: 0;
-                      font-family: 'JetBrains Mono', monospace;
-                      font-size: 14px;
-                      font-weight: 700;
-                      color: #1e293b;
-                      letter-spacing: 2px;
-                      text-transform: uppercase;
-                    "
-                  >
-                    HR PORTAL
-                  </h3>
+                  <!-- Company Logo -->
+                  <img
+                    src="https://www.hivetechsols.com/assets/468aa9b0a5c7655ca4ff559abe5fcfdc42ac5232-DnWbXsot.png"
+                    alt="HR Portal"
+                    style="width: 140px; height: auto; display: block; margin: 0 auto 10px auto"
+                  />
+                  
+                  <!-- HR Portal Title -->
+              
+                  
                 </td>
               </tr>
             </table>
@@ -282,66 +278,6 @@ const generateAnnouncementEmail = (announcement, portalUrl) => {
           </td>
         </tr>
 
-        ${announcement.attachments && announcement.attachments.length > 0 ? `
-        <!-- Attachments Section -->
-        <tr>
-          <td class="mobile-pad" style="padding: 0 40px 40px 40px">
-            <table
-              width="100%"
-              cellpadding="0"
-              cellspacing="0"
-              style="
-                background-color: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                overflow: hidden;
-              "
-            >
-              <tr>
-                <td style="padding: 20px">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="padding-bottom: 12px">
-                        <p
-                          style="
-                            margin: 0;
-                            font-family: 'JetBrains Mono', monospace;
-                            font-size: 10px;
-                            font-weight: 700;
-                            color: #64748b;
-                            text-transform: uppercase;
-                            letter-spacing: 1px;
-                          "
-                        >
-                          📎 ATTACHMENTS
-                        </p>
-                      </td>
-                    </tr>
-                    ${announcement.attachments.map(att => `
-                    <tr>
-                      <td style="padding: 8px 0">
-                        <a
-                          href="${att.fileUrl}"
-                          style="
-                            font-family: 'Inter', sans-serif;
-                            font-size: 14px;
-                            color: #3b82f6;
-                            text-decoration: none;
-                            font-weight: 500;
-                          "
-                        >
-                          📄 ${att.fileName}
-                        </a>
-                      </td>
-                    </tr>
-                    `).join('')}
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        ` : ''}
 
         ${announcement.targetAudience !== 'All Employees' ? `
         <!-- Target Audience Info -->
@@ -441,46 +377,6 @@ const generateAnnouncementEmail = (announcement, portalUrl) => {
         </tr>
         ` : ''}
 
-        <!-- CTA Button -->
-        <tr>
-          <td style="padding: 20px 40px 50px 40px; text-align: center">
-            <p
-              style="
-                margin: 0 0 20px 0;
-                font-family: 'Inter', sans-serif;
-                font-size: 16px;
-                font-weight: 600;
-                color: #0f172a;
-              "
-            >
-              View Full Details
-            </p>
-            <table align="center" cellspacing="0" cellpadding="0">
-              <tr>
-                <td align="center" style="border-radius: 8px">
-                  <a
-                    href="${portalUrl}/announcements/${announcement._id}"
-                    target="_blank"
-                    class="btn-primary"
-                    style="
-                      display: inline-block;
-                      padding: 14px 40px;
-                      background-color: #3b82f6;
-                      color: #ffffff;
-                      font-family: 'Inter', sans-serif;
-                      font-size: 15px;
-                      font-weight: 600;
-                      text-decoration: none;
-                      border-radius: 8px;
-                    "
-                  >
-                    Open HR Portal
-                  </a>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
 
         <!-- Footer -->
         <tr>
@@ -503,7 +399,7 @@ const generateAnnouncementEmail = (announcement, portalUrl) => {
                 text-transform: uppercase;
               "
             >
-              HR PORTAL SYSTEM
+              Hive Tech Solutions HR Portal
             </p>
             <p
               style="
