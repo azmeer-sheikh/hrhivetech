@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Users, UserCheck, Building2, Clock, Calendar, Palmtree, FileText, TrendingUp, Bell, Award, FileCheck, Users2, Megaphone, Gift, BarChart3, DollarSign } from 'lucide-react';
-import { announcementAPI, holidayAPI } from '../services/api';
+import { announcementAPI, holidayAPI, analyticsAPI } from '../services/api';
 
 export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const todayISO = new Date().toISOString().split('T')[0];
@@ -26,7 +26,56 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
     badgeText: string;
   }>>([]);
 
+  const [dashboardStats, setDashboardStats] = useState({
+    totalEmployees: 0,
+    activeEmployees: 0,
+    newThisMonth: 0,
+    presentToday: 0,
+    attendancePercent: 0,
+    pendingLeaves: 0,
+    approvedLeaves: 0,
+    departments: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch dashboard overview stats
+        const res: any = await analyticsAPI.getDashboard();
+        const data = res?.data || {};
+        
+        const totalEmployees = data.employees?.total || 0;
+        const activeEmployees = data.employees?.active || 0;
+        const newThisMonth = data.employees?.newThisMonth || 0;
+        const presentToday = data.attendance?.presentToday || 0;
+        const attendancePercent = activeEmployees > 0 
+          ? Math.round((presentToday / activeEmployees) * 100) 
+          : 0;
+        const pendingLeaves = data.leaves?.pending || 0;
+        const approvedLeaves = data.leaves?.approvedThisMonth || 0;
+        const departments = data.departments?.length || 0;
+
+        setDashboardStats({
+          totalEmployees,
+          activeEmployees,
+          newThisMonth,
+          presentToday,
+          attendancePercent,
+          pendingLeaves,
+          approvedLeaves,
+          departments,
+        });
+      } catch (err) {
+        console.error('Failed to load dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const loadAnnouncements = async () => {
       try {
         const res: any = await announcementAPI.getAll(1, 5);
@@ -77,14 +126,16 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       }
     };
 
+    loadDashboardData();
     loadAnnouncements();
     loadHolidays();
   }, [todayISO]);
+
   const stats = [
     {
       title: 'Total Employees',
-      value: '57',
-      change: '+3 this month',
+      value: loading ? '...' : String(dashboardStats.totalEmployees),
+      change: loading ? '...' : `+${dashboardStats.newThisMonth} this month`,
       icon: Users,
       iconBg: 'bg-blue-500',
       textColor: 'text-blue-600',
@@ -92,8 +143,8 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
     },
     {
       title: 'Active Today',
-      value: '48',
-      change: '84% attendance',
+      value: loading ? '...' : String(dashboardStats.presentToday),
+      change: loading ? '...' : `${dashboardStats.attendancePercent}% attendance`,
       icon: UserCheck,
       iconBg: 'bg-emerald-500',
       textColor: 'text-emerald-600',
@@ -101,8 +152,8 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
     },
     {
       title: 'On Leave',
-      value: '4',
-      change: '2 pending approval',
+      value: loading ? '...' : String(dashboardStats.approvedLeaves),
+      change: loading ? '...' : `${dashboardStats.pendingLeaves} pending approval`,
       icon: Palmtree,
       iconBg: 'bg-amber-500',
       textColor: 'text-amber-600',
@@ -110,8 +161,8 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
     },
     {
       title: 'Departments',
-      value: '3',
-      change: 'Sales & Tech',
+      value: loading ? '...' : String(dashboardStats.departments),
+      change: 'Active departments',
       icon: Building2,
       iconBg: 'bg-purple-500',
       textColor: 'text-purple-600',

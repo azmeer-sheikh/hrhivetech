@@ -545,7 +545,7 @@ export const holidayAPI = {
 
 export const analyticsAPI = {
   getDashboard: async () => {
-    return apiCall('/analytics/dashboard', {
+    return apiCall('/analytics/overview', {
       method: 'GET',
     });
   },
