@@ -2,6 +2,7 @@ const Announcement = require("../models/Announcement");
 const User = require("../models/User");
 const sendEmail = require("../utils/sendEmail");
 const generateAnnouncementEmail = require("../utils/emailTemplates/announcementTemplate");
+const { addBatchEmailJob, addEmailJob } = require("../utils/emailJobQueue");
 const {
   asyncHandler,
   paginate,
@@ -102,7 +103,7 @@ exports.getAnnouncement = asyncHandler(async (req, res) => {
 // @route   POST /api/announcements
 // @access  Private (admin, hr)
 exports.createAnnouncement = asyncHandler(async (req, res) => {
-  const { testEmail, ...rest } = req.body;
+  const { testEmail, sendToAll = false, ...rest } = req.body;
   
   const announcementData = {
     ...rest,
@@ -111,52 +112,51 @@ exports.createAnnouncement = asyncHandler(async (req, res) => {
 
   const announcement = await Announcement.create(announcementData);
 
-  // Send email to employees based on target audience
-  try {
-    let emails = [];
-    const Employee = require("../models/Employee");
-    
-    // If testEmail is provided, only send to that email
-    if (testEmail) {
-      emails = [testEmail];
-    } else {
-      let query = {};
+  // Return announcement immediately (before email sending)
+  // Email sending happens in background via job queue
+  const announcementRes = announcement.toObject();
 
-      // Filter based on target audience
-      if (announcement.targetAudience === 'All Employees') {
-        // Send to all employees
-        const employees = await Employee.find({ isActive: true }).select('email firstName lastName');
-        emails = employees.map(emp => emp.email).filter(email => email);
-      } else if (announcement.targetAudience === 'Specific Department' && announcement.departments.length > 0) {
-        // Send to specific departments
-        const employees = await Employee.find({
-          department: { $in: announcement.departments },
-          isActive: true
-        }).select('email firstName lastName');
-        emails = employees.map(emp => emp.email).filter(email => email);
-      } else if (announcement.targetAudience === 'Specific Role' && announcement.roles.length > 0) {
-        // Send to specific roles (through User model)
-        const users = await User.find({
-          role: { $in: announcement.roles },
-          isActive: true
-        }).select('email');
-        emails = users.map(user => user.email).filter(email => email);
-      } else if (announcement.targetAudience === 'Management Only') {
-        // Send to management roles
-        const users = await User.find({
-          role: { $in: ['admin', 'hr', 'manager'] },
-          isActive: true
-        }).select('email');
-        emails = users.map(user => user.email).filter(email => email);
+  // Queue email sending in background if needed
+  if (sendToAll || testEmail) {
+    try {
+      let emails = [];
+      const Employee = require("../models/Employee");
+      
+      // If testEmail is provided, only send to that email
+      if (testEmail) {
+        emails = [testEmail];
+      } else if (sendToAll) {
+        // Get emails based on target audience
+        if (announcement.targetAudience === 'All Employees') {
+          const employees = await Employee.find({ isActive: true }).select('email');
+          emails = employees.map(emp => emp.email).filter(email => email);
+        } else if (announcement.targetAudience === 'Specific Department' && announcement.departments.length > 0) {
+          const employees = await Employee.find({
+            department: { $in: announcement.departments },
+            isActive: true
+          }).select('email');
+          emails = employees.map(emp => emp.email).filter(email => email);
+        } else if (announcement.targetAudience === 'Specific Role' && announcement.roles.length > 0) {
+          const users = await User.find({
+            role: { $in: announcement.roles },
+            isActive: true
+          }).select('email');
+          emails = users.map(user => user.email).filter(email => email);
+        } else if (announcement.targetAudience === 'Management Only') {
+          const users = await User.find({
+            role: { $in: ['admin', 'hr', 'manager'] },
+            isActive: true
+          }).select('email');
+          emails = users.map(user => user.email).filter(email => email);
+        }
       }
-    }
 
-    if (emails.length > 0) {
-      // Generate modern HTML email template
-      const portalUrl = process.env.FRONTEND_URL || 'https://hr-portal.com';
-      const htmlContent = generateAnnouncementEmail(announcement, portalUrl);
+      if (emails.length > 0) {
+        // Generate modern HTML email template
+        const portalUrl = process.env.FRONTEND_URL || 'https://hr-portal.com';
+        const htmlContent = generateAnnouncementEmail(announcement, portalUrl);
 
-      const plainMessage = `
+        const plainMessage = `
 New Announcement: ${announcement.title}
 
 Priority: ${announcement.priority}
@@ -169,25 +169,50 @@ ${announcement.content}
 ${announcement.attachments.length > 0 ? `\nAttachments:\n${announcement.attachments.map(att => `- ${att.fileName}: ${att.fileUrl}`).join('\n')}` : ''}
 
 Please log in to the HR Portal to view more details: ${portalUrl}/announcements/${announcement._id}
-      `;
+        `;
 
-      await sendEmail({
-        bcc: emails,
-        subject: `[${announcement.priority}] ${announcement.title} - HR Portal Announcement`,
-        message: plainMessage,
-        html: htmlContent,
-      });
-
-      console.log(`Announcement email sent to ${emails.length} employees`);
+        // Queue batch emails with 30-second interval between batches
+        if (testEmail) {
+          // Single test email, queue with no delay
+          const emailOptions = {
+            email: testEmail,
+            subject: `[${announcement.priority}] ${announcement.title} - HR Portal Announcement`,
+            message: plainMessage,
+            html: htmlContent,
+          };
+          const jobId = addEmailJob(emailOptions, 0, `announcement-test-${announcement._id}`);
+          console.log(`✓ Test announcement email queued (Job ID: ${jobId})`);
+          announcementRes.emailStatus = 'queued';
+          announcementRes.emailJobId = jobId;
+        } else if (sendToAll && emails.length > 0) {
+          // Batch emails to all recipients
+          const jobIds = addBatchEmailJob(
+            emails,
+            `[${announcement.priority}] ${announcement.title} - HR Portal Announcement`,
+            htmlContent,
+            plainMessage,
+            0, // Initial delay before first batch
+            30, // 30-second interval between batches
+            50 // 50 recipients per batch
+          );
+          console.log(`✓ Announcement emails queued for ${emails.length} employees in batches`);
+          announcementRes.emailStatus = 'queued_batch';
+          announcementRes.totalEmails = emails.length;
+          announcementRes.emailJobIds = jobIds;
+        }
+      }
+    } catch (error) {
+      console.error("Failed to queue announcement emails:", error.message);
+      announcementRes.emailStatus = 'failed_to_queue';
+      announcementRes.emailError = error.message;
+      // Don't fail the request if email queuing fails
     }
-  } catch (error) {
-    console.error("Email notification failed:", error);
-    // Don't fail the request if email fails
   }
 
   res.status(201).json({
     success: true,
-    data: announcement,
+    data: announcementRes,
+    message: 'Announcement created successfully. Emails will be sent in background.'
   });
 });
 

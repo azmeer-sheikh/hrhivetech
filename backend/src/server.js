@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const path = require('path');
+const { startQueueProcessor } = require('./utils/emailJobQueue');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -22,9 +23,13 @@ const documentRoutes = require('./routes/documentRoutes');
 const holidayRoutes = require('./routes/holidayRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const queueRoutes = require('./routes/queueRoutes');
 
 // Connect to database
 connectDB();
+
+// Start email job queue processor
+startQueueProcessor();
 
 const app = express();
 
@@ -164,6 +169,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/queue', queueRoutes);
 
 // Serve frontend static files - check if dist folder exists
 const frontendPath = path.join(__dirname, '../../dist');

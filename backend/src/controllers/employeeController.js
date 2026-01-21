@@ -1,6 +1,9 @@
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const { asyncHandler, paginate, sendPaginatedResponse } = require('../utils/helpers');
+const sendEmail = require('../utils/sendEmail');
+const generateWelcomeEmail = require('../utils/emailTemplates/welcomeTemplate');
+const { addEmailJob } = require('../utils/emailJobQueue');
 
 // @desc    Get all employees
 // @route   GET /api/employees
@@ -82,9 +85,29 @@ exports.createEmployee = asyncHandler(async (req, res) => {
     await employee.save();
   }
 
+  // Queue welcome email with 30-second delay
+  try {
+    const welcomeEmailHtml = generateWelcomeEmail(employee);
+    const emailOptions = {
+      email: employee.email,
+      subject: `Welcome to ${process.env.FROM_NAME || 'Our Company'}!`,
+      html: welcomeEmailHtml,
+      message: `Welcome ${employee.firstName} ${employee.lastName}! We're excited to have you join our team.`
+    };
+
+    // Add to job queue with 30-second delay
+    const jobId = addEmailJob(emailOptions, 30, `welcome-${employee._id}`);
+    
+    console.log(`✓ Welcome email queued for ${employee.email} (Job ID: ${jobId})`);
+  } catch (error) {
+    console.error('Failed to queue welcome email:', error.message);
+    // Don't fail the employee creation if queuing fails
+  }
+
   res.status(201).json({
     success: true,
-    data: employee
+    data: employee,
+    message: 'Employee created successfully. Welcome email will be sent in 30 seconds.'
   });
 });
 
