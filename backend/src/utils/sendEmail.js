@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 
 const sendEmail = async (options) => {
+  console.log('📧 sendEmail called - Recipients:', options.email || options.bcc, 'Subject:', options.subject);
+  
   let transporter;
   
   // Try to use Google Service Account first (requires domain-wide delegation)
@@ -47,8 +49,16 @@ const sendEmail = async (options) => {
     
     // Fallback to standard SMTP configuration
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.error('❌ Email configuration incomplete. Missing EMAIL_USER or EMAIL_PASSWORD');
       throw new Error('Email configuration incomplete. Please set EMAIL_USER and EMAIL_PASSWORD in .env file');
     }
+    
+    console.log('📧 SMTP Config:', {
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      user: process.env.EMAIL_USER,
+      hasPassword: !!process.env.EMAIL_PASSWORD
+    });
     
     transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -79,10 +89,12 @@ const sendEmail = async (options) => {
     mailOptions.bcc = options.bcc;
   }
 
+  console.log('📤 Sending email...', { to: mailOptions.to, from: mailOptions.from });
+
   // Send email
   const info = await transporter.sendMail(mailOptions);
 
-  console.log('Message sent: %s', info.messageId);
+  console.log('✅ Message sent successfully! Message ID: %s', info.messageId);
   return info;};
 
 module.exports = sendEmail;
