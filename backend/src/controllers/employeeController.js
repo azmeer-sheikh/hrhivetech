@@ -90,7 +90,6 @@ exports.createEmployee = asyncHandler(async (req, res) => {
   }
 
   // Send welcome email (queue in dev, send immediately in production unless ENABLE_EMAIL_QUEUE=true)
-  let emailStatus = 'Email sending in progress';
   try {
     const welcomeEmailHtml = generateWelcomeEmail(employee);
     const emailOptions = {
@@ -100,34 +99,24 @@ exports.createEmployee = asyncHandler(async (req, res) => {
       message: `Welcome ${employee.firstName} ${employee.lastName}! We're excited to have you join our team.`
     };
 
-    const shouldQueue = process.env.ENABLE_EMAIL_QUEUE === 'true';
-    const isProduction = process.env.NODE_ENV === 'production';
+    const shouldQueue = process.env.ENABLE_EMAIL_QUEUE === 'true' && process.env.NODE_ENV !== 'production';
 
-    if (shouldQueue && !isProduction) {
+    if (shouldQueue) {
       const jobId = addEmailJob(emailOptions, 30, `welcome-${employee._id}`);
       console.log(`✓ Welcome email queued for ${employee.email} (Job ID: ${jobId})`);
-      emailStatus = 'Welcome email queued successfully';
     } else {
-      // Send immediately in production or when queue is disabled
-      console.log(`📧 Attempting to send welcome email to ${employee.email}...`);
-      const emailResult = await sendEmail(emailOptions);
-      console.log(`✅ Welcome email sent successfully to ${employee.email}`, emailResult.messageId);
-      emailStatus = 'Welcome email sent successfully';
+      await sendEmail(emailOptions);
+      console.log(`✓ Welcome email sent immediately to ${employee.email}`);
     }
   } catch (error) {
-    console.error('❌ FAILED to send welcome email:', {
-      employee: employee.email,
-      errorMessage: error.message,
-      errorStack: error.stack
-    });
-    emailStatus = 'Email sending failed - employee created successfully';
+    console.error('Failed to send welcome email:', error.message);
     // Don't fail the employee creation if email sending fails
   }
 
   res.status(201).json({
     success: true,
     data: employee,
-    message: `Employee created successfully. ${emailStatus}`
+    message: 'Employee created successfully. Welcome email will be sent in 30 seconds.'
   });
 });
 
