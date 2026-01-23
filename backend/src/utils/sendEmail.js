@@ -29,9 +29,9 @@ const sendEmail = async (options) => {
       // Create transporter with OAuth2
       transporter = nodemailer.createTransport({
         service: 'gmail',
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
+        connectionTimeout: 180000,
+        greetingTimeout: 180000,
+        socketTimeout: 180000,
         auth: {
           type: 'OAuth2',
           user: process.env.EMAIL_USER,
@@ -57,9 +57,9 @@ const sendEmail = async (options) => {
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.EMAIL_PORT) || 587,
       secure: process.env.EMAIL_PORT == 465,
-      connectionTimeout: 10000, // 10 second connection timeout
-      greetingTimeout: 10000, // 10 second greeting timeout  
-      socketTimeout: 15000, // 15 second socket timeout
+      connectionTimeout: 180000, // 180 second connection timeout
+      greetingTimeout: 180000, // 180 second greeting timeout  
+      socketTimeout: 180000, // 180 second socket timeout
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
