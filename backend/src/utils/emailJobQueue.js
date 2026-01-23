@@ -40,17 +40,20 @@ const processQueue = async () => {
         
         // Retry logic - increment retry count
         job.retries = (job.retries || 0) + 1;
-        if (job.retries >= 3) {
-          // Remove after 3 failed attempts
+        if (job.retries >= 5) {
+          // Remove after 5 failed attempts (increased from 3 for Railway's slower network)
           const index = jobQueue.indexOf(job);
           if (index > -1) {
             jobQueue.splice(index, 1);
           }
-          console.error(`Job permanently failed after 3 retries: ${job.id}`);
+          console.error(`❌ Job permanently failed after 5 retries: ${job.id}`);
+          console.error(`   Error: ${error.message}`);
+          console.error(`   Suggestion: Check Railway environment variables or use SendGrid`);
         } else {
-          // Reschedule for 30 seconds later
-          job.executeAt = now + 30000;
-          console.log(`Rescheduling job: ${job.id}`);
+          // Reschedule with exponential backoff: 30s, 60s, 120s, 240s
+          const delay = 30000 * Math.pow(2, job.retries - 1);
+          job.executeAt = now + delay;
+          console.log(`⏳ Rescheduling job: ${job.id} (Retry ${job.retries}/5 in ${delay/1000}s)`);
         }
       }
     }

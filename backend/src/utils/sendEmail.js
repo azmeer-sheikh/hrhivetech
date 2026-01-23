@@ -32,6 +32,8 @@ const sendEmail = async (options) => {
         connectionTimeout: 180000,
         greetingTimeout: 180000,
         socketTimeout: 180000,
+        pool: true,
+        maxConnections: 1,
         auth: {
           type: 'OAuth2',
           user: process.env.EMAIL_USER,
@@ -39,6 +41,8 @@ const sendEmail = async (options) => {
           privateKey: credentials.private_key,
           accessToken: tokens.access_token,
         },
+        logger: true,
+        debug: process.env.NODE_ENV === 'development',
       });
 
       console.log('✓ Using Google Service Account OAuth2 for email');
@@ -60,11 +64,20 @@ const sendEmail = async (options) => {
       connectionTimeout: 180000, // 180 second connection timeout
       greetingTimeout: 180000, // 180 second greeting timeout  
       socketTimeout: 180000, // 180 second socket timeout
+      pool: true, // Use connection pooling for better performance
+      maxConnections: 1, // Limit concurrent connections
+      maxMessages: 100, // Maximum messages per connection
+      rateDelta: 1000, // Rate limiting: 1 second between messages
+      rateLimit: 1, // Send 1 email per rateDelta period
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
+      logger: true, // Enable logging for debugging
+      debug: process.env.NODE_ENV === 'development', // Debug in dev mode
     });
+    
+    console.log(`✓ SMTP configured: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT}`);
     
     console.log('✓ Using SMTP authentication');
   }

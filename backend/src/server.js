@@ -9,6 +9,7 @@ const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const path = require('path');
 const { startQueueProcessor } = require('./utils/emailJobQueue');
+const { startScheduledJobs } = require('./utils/scheduledJobs');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -31,6 +32,9 @@ connectDB();
 
 // Start email job queue processor
 startQueueProcessor();
+
+// Start scheduled jobs (auto-checkout, etc.)
+startScheduledJobs();
 
 const app = express();
 
