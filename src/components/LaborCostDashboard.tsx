@@ -440,23 +440,6 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
         </CardContent>
       </Card>
 
-      {/* Information Footer */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-6">
-          <h3 className="text-blue-900 mb-3 flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
-            How Labor Costs are Calculated
-          </h3>
-          <div className="space-y-2 text-sm text-blue-800">
-            <p>• <strong>Active Formula:</strong> {FORMULAS[selectedFormula].label} - {FORMULAS[selectedFormula].description}</p>
-            <p>• <strong>Hourly Rate:</strong> Monthly salary ÷ {selectedFormula === 'custom' ? customHours : FORMULAS[selectedFormula].hoursPerMonth} hours</p>
-            <p>• <strong>Active Employees:</strong> Currently clocked in (Present/Late status with check-in time, no check-out)</p>
-            <p>• <strong>Burn Rate:</strong> Sum of all active hourly rates, calculated per second for live updates</p>
-            <p>• <strong>Cost So Far:</strong> Hours worked × hourly rate (updates live every second)</p>
-            <p>• <strong>Projected Total:</strong> Assumes all active employees complete a full 8-hour shift</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

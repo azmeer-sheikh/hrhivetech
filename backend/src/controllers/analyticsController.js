@@ -224,7 +224,130 @@ exports.getAttendanceAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Get labor cost analytics
+// @desc    Get real-time labor cost (active employees)
+// @route   GET /api/analytics/labor-cost/realtime
+// @access  Private (admin, hr)
+exports.getRealtimeLaborCost = asyncHandler(async (req, res) => {
+  const { formula = 'standard' } = req.query;
+  
+  // Formula options: standard (160), extended (176), custom
+  const hoursPerMonth = {
+    standard: 160,  // 8 hours × 20 working days
+    extended: 176,  // 8 hours × 22 working days
+    custom: parseInt(req.query.customHours) || 184  // 8 hours × 23 working days
+  };
+  
+  const selectedHours = hoursPerMonth[formula] || hoursPerMonth.standard;
+  
+  // Get today's date range
+  const today = moment().startOf('day');
+  const endOfDay = moment().endOf('day');
+  
+  // Get all active employees clocked in today (Present/Late with checkIn, no checkOut)
+  const activeAttendance = await Attendance.find({
+    date: { $gte: today.toDate(), $lte: endOfDay.toDate() },
+    status: { $in: ['Present', 'Late'] },
+    checkIn: { $exists: true, $ne: null },
+    checkOut: null // Not checked out yet
+  }).populate({
+    path: 'employee',
+    select: 'firstName lastName department position salary salaryType status'
+  });
+  
+  // Filter out inactive employees and calculate costs
+  const activeEmployees = activeAttendance
+    .filter(record => record.employee && record.employee.status === 'Active')
+    .map(record => {
+      const employee = record.employee;
+      
+      // Calculate hourly rate based on salary type and formula
+      let hourlyRate;
+      if (employee.salaryType === 'Hourly') {
+        hourlyRate = employee.salary;
+      } else if (employee.salaryType === 'Annual') {
+        hourlyRate = employee.salary / 12 / selectedHours; // Annual to hourly
+      } else {
+        hourlyRate = employee.salary / selectedHours; // Monthly to hourly (default)
+      }
+      
+      // Calculate hours worked so far
+      const checkInTime = moment(record.checkIn);
+      const now = moment();
+      const hoursWorked = now.diff(checkInTime, 'hours', true); // Decimal hours
+      
+      // Calculate cost so far
+      const costSoFar = hoursWorked * hourlyRate;
+      
+      // Calculate projected cost (assuming 8-hour shift)
+      const projectedCost = 8 * hourlyRate;
+      
+      return {
+        employeeId: employee._id,
+        name: `${employee.firstName} ${employee.lastName}`,
+        department: employee.department,
+        position: employee.position,
+        monthlySalary: employee.salary,
+        salaryType: employee.salaryType,
+        hourlyRate,
+        checkInTime: record.checkIn,
+        hoursWorked,
+        costSoFar,
+        projectedCost,
+        remainingHours: Math.max(0, 8 - hoursWorked)
+      };
+    });
+  
+  // Calculate aggregated metrics
+  const totalActiveEmployees = activeEmployees.length;
+  const totalHourlyBurnRate = activeEmployees.reduce((sum, emp) => sum + emp.hourlyRate, 0);
+  const burnRatePerSecond = totalHourlyBurnRate / 3600;
+  const burnRatePerMinute = totalHourlyBurnRate / 60;
+  const currentTotalCost = activeEmployees.reduce((sum, emp) => sum + emp.costSoFar, 0);
+  const projectedDailyTotal = activeEmployees.reduce((sum, emp) => sum + emp.projectedCost, 0);
+  
+  // Department breakdown
+  const departmentBreakdown = activeEmployees.reduce((acc, emp) => {
+    if (!acc[emp.department]) {
+      acc[emp.department] = {
+        count: 0,
+        totalHourlyRate: 0,
+        currentCost: 0,
+        projectedCost: 0
+      };
+    }
+    acc[emp.department].count++;
+    acc[emp.department].totalHourlyRate += emp.hourlyRate;
+    acc[emp.department].currentCost += emp.costSoFar;
+    acc[emp.department].projectedCost += emp.projectedCost;
+    return acc;
+  }, {});
+  
+  res.status(200).json({
+    success: true,
+    timestamp: new Date(),
+    formula: {
+      type: formula,
+      hoursPerMonth: selectedHours,
+      description: formula === 'standard' ? '8 hours × 20 working days' : 
+                   formula === 'extended' ? '8 hours × 22 working days' :
+                   `Custom: ${selectedHours} hours/month`
+    },
+    data: {
+      summary: {
+        activeEmployees: totalActiveEmployees,
+        burnRatePerHour: totalHourlyBurnRate,
+        burnRatePerMinute: burnRatePerMinute,
+        burnRatePerSecond: burnRatePerSecond,
+        currentTotalCost: currentTotalCost,
+        projectedDailyTotal: projectedDailyTotal
+      },
+      departmentBreakdown,
+      activeEmployees: activeEmployees.sort((a, b) => b.costSoFar - a.costSoFar) // Sort by highest cost
+    }
+  });
+});
+
+// @desc    Get labor cost analytics (historical/monthly)
 // @route   GET /api/analytics/labor-cost
 // @access  Private (admin, hr)
 exports.getLaborCostAnalytics = asyncHandler(async (req, res) => {

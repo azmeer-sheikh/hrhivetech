@@ -4,6 +4,7 @@ const {
   getDashboardOverview,
   getAttendanceAnalytics,
   getLaborCostAnalytics,
+  getRealtimeLaborCost,
   getPerformanceAnalytics,
   getLeaveAnalytics
 } = require('../controllers/analyticsController');
@@ -13,6 +14,7 @@ router.use(protect); // All routes require authentication
 
 router.get('/overview', getDashboardOverview);
 router.get('/attendance', getAttendanceAnalytics);
+router.get('/labor-cost/realtime', authorize('admin', 'hr'), getRealtimeLaborCost);
 router.get('/labor-cost', authorize('admin', 'hr'), getLaborCostAnalytics);
 router.get('/performance', getPerformanceAnalytics);
 router.get('/leaves', getLeaveAnalytics);
