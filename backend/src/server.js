@@ -24,6 +24,7 @@ const holidayRoutes = require('./routes/holidayRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const queueRoutes = require('./routes/queueRoutes');
+const smtpTestRoutes = require('./routes/smtpTestRoutes');
 
 // Connect to database
 connectDB();
@@ -175,6 +176,9 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/queue', queueRoutes);
+
+// SMTP Test Route (for debugging)
+smtpTestRoutes(app);
 
 // Serve frontend static files - check if dist folder exists
 const frontendPath = path.join(__dirname, '../../dist');
