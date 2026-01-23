@@ -33,6 +33,11 @@ startQueueProcessor();
 
 const app = express();
 
+// Trust proxy for Railway/production environments (fixes rate-limit X-Forwarded-For warning)
+if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+  app.set('trust proxy', 1);
+}
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
