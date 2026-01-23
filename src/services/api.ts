@@ -30,10 +30,17 @@ async function apiCall<T>(
 
 
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     // Handle various HTTP error codes
     if (!response.ok) {
@@ -90,6 +97,10 @@ async function apiCall<T>(
       throw new Error(
         `Cannot connect to backend at ${API_BASE_URL}. Make sure the backend server is running on http://localhost:5000`
       );
+    }
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout. Please try again.');
     }
 
     throw error;

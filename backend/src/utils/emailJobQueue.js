@@ -59,10 +59,10 @@ const processQueue = async () => {
   }
 };
 
-// Start queue processor - runs every 5 seconds
+// Start queue processor - runs every 2 seconds for faster delivery
 const startQueueProcessor = () => {
-  setInterval(processQueue, 5000);
-  console.log('📋 Email job queue processor started');
+  setInterval(processQueue, 2000);
+  console.log('📋 Email job queue processor started (checking every 2s)');
 };
 
 /**

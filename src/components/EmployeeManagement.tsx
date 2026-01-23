@@ -201,13 +201,34 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         const empId = editingEmployee._id || editingEmployee.id;
         await employeeAPI.update(String(empId), submitData);
         toast.success('Employee updated successfully', { position: 'top-center' });
+        // Reload to get updated data
+        await loadEmployees();
       } else {
-        await employeeAPI.create(submitData);
-        toast.success('Employee added successfully', { position: 'top-center' });
+        // Create new employee
+        const response = await employeeAPI.create(submitData);
+        toast.success('Employee created successfully! Welcome email will be sent shortly.', { position: 'top-center' });
+        
+        // Add employee to local state immediately without reloading entire list
+        if (response?.data) {
+          const newEmployee = {
+            _id: response.data._id,
+            id: response.data._id,
+            firstName: response.data.firstName,
+            lastName: response.data.lastName,
+            name: `${response.data.firstName} ${response.data.lastName}`,
+            email: response.data.email,
+            phone: response.data.phone,
+            position: response.data.position,
+            department: response.data.department,
+            salary: response.data.salary,
+            joiningDate: response.data.joiningDate,
+            status: response.data.status,
+            imageUrl: response.data.imageUrl,
+            ...response.data
+          };
+          setEmployees([newEmployee, ...employees]);
+        }
       }
-
-      // Reload employees from API
-      await loadEmployees();
 
       setShowModal(false);
       setEditingEmployee(null);

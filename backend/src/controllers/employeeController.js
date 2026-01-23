@@ -15,7 +15,7 @@ exports.getEmployees = asyncHandler(async (req, res) => {
   let query = {};
   
   if (search) {
-    // Keyword search across common employee fields
+x    // Keyword search across common employee fields
     query.$or = [
       { firstName: { $regex: search, $options: 'i' } },
       { lastName: { $regex: search, $options: 'i' } },
@@ -73,50 +73,83 @@ exports.getEmployee = asyncHandler(async (req, res) => {
 // @route   POST /api/employees
 // @access  Private (admin, hr)
 exports.createEmployee = asyncHandler(async (req, res) => {
+  const startTime = Date.now();
+  
+  // Create employee record first (fast operation)
   const employee = await Employee.create(req.body);
+  console.log(`⚡ Employee created in ${Date.now() - startTime}ms`);
 
-  // Optionally create user account for employee
-  if (req.body.createUserAccount) {
-    const user = await User.create({
-      username: req.body.email.split('@')[0],
-      email: req.body.email,
-      password: req.body.password || 'default123',
-      role: 'employee',
-      employeeId: employee._id
-    });
+  // Prepare response data immediately (don't wait for user account or email)
+  const responseData = {
+    _id: employee._id,
+    employeeCode: employee.employeeCode,
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    email: employee.email,
+    phone: employee.phone,
+    position: employee.position,
+    department: employee.department,
+    salary: employee.salary,
+    joiningDate: employee.joiningDate,
+    status: employee.status,
+    imageUrl: employee.imageUrl,
+    createdAt: employee.createdAt
+  };
 
-    employee.userId = user._id;
-    await employee.save();
-  }
-
-  // Send welcome email (queue in dev, send immediately in production unless ENABLE_EMAIL_QUEUE=true)
-  try {
-    const welcomeEmailHtml = generateWelcomeEmail(employee);
-    const emailOptions = {
-      email: employee.email,
-      subject: `Welcome to ${process.env.FROM_NAME || 'Our Company'}!`,
-      html: welcomeEmailHtml,
-      message: `Welcome ${employee.firstName} ${employee.lastName}! We're excited to have you join our team.`
-    };
-
-    const shouldQueue = process.env.ENABLE_EMAIL_QUEUE === 'true' && process.env.NODE_ENV !== 'production';
-
-    if (shouldQueue) {
-      const jobId = addEmailJob(emailOptions, 30, `welcome-${employee._id}`);
-      console.log(`✓ Welcome email queued for ${employee.email} (Job ID: ${jobId})`);
-    } else {
-      await sendEmail(emailOptions);
-      console.log(`✓ Welcome email sent immediately to ${employee.email}`);
-    }
-  } catch (error) {
-    console.error('Failed to send welcome email:', error.message);
-    // Don't fail the employee creation if email sending fails
-  }
-
+  // Send response immediately before any background tasks
   res.status(201).json({
     success: true,
-    data: employee,
-    message: 'Employee created successfully. Welcome email will be sent in 30 seconds.'
+    data: responseData,
+    message: 'Employee created successfully. Welcome email will be sent shortly.'
+  });
+
+  // All slow operations happen AFTER response (non-blocking)
+  setImmediate(async () => {
+    try {
+      // Create user account in background (slow due to bcrypt)
+      if (req.body.createUserAccount) {
+        try {
+          const userStartTime = Date.now();
+          const user = await User.create({
+            username: req.body.email.split('@')[0],
+            email: req.body.email,
+            password: req.body.password || 'default123',
+            role: 'employee',
+            employeeId: employee._id
+          });
+          
+          employee.userId = user._id;
+          await employee.save();
+          console.log(`✓ User account created for ${employee.email} in ${Date.now() - userStartTime}ms`);
+        } catch (userError) {
+          console.error(`✗ Failed to create user account for ${employee.email}:`, userError.message);
+          // Don't fail - employee is already created
+        }
+      }
+
+      // Queue welcome email in background (non-blocking)
+      try {
+        const welcomeEmailHtml = generateWelcomeEmail(employee);
+        const emailOptions = {
+          email: employee.email,
+          subject: `Welcome to ${process.env.FROM_NAME || 'Our Company'}!`,
+          html: welcomeEmailHtml,
+          message: `Welcome ${employee.firstName} ${employee.lastName}! We're excited to have you join our team.`
+        };
+
+        const delaySeconds = parseInt(process.env.EMAIL_QUEUE_DELAY_SECONDS || '0', 10);
+        const jobId = addEmailJob(emailOptions, delaySeconds, `welcome-${employee._id}`);
+        console.log(`✓ Welcome email queued for ${employee.email} (Job ID: ${jobId})`);
+      } catch (emailError) {
+        console.error(`✗ Failed to queue welcome email for ${employee.email}:`, emailError.message);
+        // Don't fail - employee is already created
+      }
+      
+      console.log(`✓ Employee ${employee.email} - Total background processing: ${Date.now() - startTime}ms`);
+    } catch (bgError) {
+      console.error('Background processing error:', bgError.message);
+      // Employee is already created and response sent - log only
+    }
   });
 });
 

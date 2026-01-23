@@ -117,6 +117,14 @@ employeeSchema.pre('save', async function(next) {
   next();
 });
 
+// Indexes for better query performance
+employeeSchema.index({ email: 1 });
+employeeSchema.index({ employeeCode: 1 });
+employeeSchema.index({ department: 1, status: 1 });
+employeeSchema.index({ status: 1 });
+employeeSchema.index({ createdAt: -1 });
+employeeSchema.index({ firstName: 1, lastName: 1 });
+
 // Virtual for full name
 employeeSchema.virtual('fullName').get(function() {
   return `${this.firstName} ${this.lastName}`;
