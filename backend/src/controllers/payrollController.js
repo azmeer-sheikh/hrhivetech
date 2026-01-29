@@ -2,6 +2,7 @@ const Payroll = require('../models/Payroll');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const ExcelJS = require('exceljs');
+const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const { asyncHandler, paginate, sendPaginatedResponse } = require('../utils/helpers');
 
 const isSalesDepartment = (department) => {
@@ -439,12 +440,9 @@ exports.exportPayrollExcel = asyncHandler(async (req, res) => {
   res.end();
 });
 
-// @desc    Download payroll receipt (HTML)
-// @route   GET /api/payroll/:id/receipt
-// @access  Private (admin, hr)
 exports.getPayrollReceipt = asyncHandler(async (req, res) => {
   const payroll = await Payroll.findById(req.params.id)
-    .populate('employee', 'firstName lastName employeeCode department position');
+    .populate('employee', 'firstName lastName employeeCode department position email phone bankAccount');
 
   if (!payroll) {
     return res.status(404).json({
@@ -455,95 +453,310 @@ exports.getPayrollReceipt = asyncHandler(async (req, res) => {
 
   const formatter = new Intl.NumberFormat('en-PK', {
     style: 'currency',
-    currency: 'PKR'
+    currency: 'PKR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   });
 
-  const formatCurrency = (value) => formatter.format(value || 0);
+  const formatCurrency = (value) => formatter.format(value || 0).replace('PKR', '').trim();
   const monthName = new Date(payroll.year, payroll.month - 1, 1).toLocaleString('en-US', { month: 'long' });
   const employee = payroll.employee || {};
+  const receiptDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Salary Receipt</title>
-        <style>
-          body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
-          .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-          .title { font-size: 20px; font-weight: 700; }
-          .section { margin-bottom: 16px; }
-          .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }
-          th { background: #f9fafb; font-size: 12px; text-transform: uppercase; color: #6b7280; }
-          .total { font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="title">Salary Receipt</div>
-            <div>${monthName} ${payroll.year}</div>
-          </div>
-          <div>
-            <div class="label">Status</div>
-            <div>${payroll.status}</div>
-          </div>
-        </div>
+  // Calculate gross earnings
+  const grossEarnings = payroll.baseSalary + (payroll.commission || 0) + (payroll.bonus || 0) + 
+                        (payroll.totalAllowances || 0) + (payroll.overtime?.amount || 0);
 
-        <div class="section">
-          <div class="label">Employee</div>
-          <div>${employee.firstName || ''} ${employee.lastName || ''}</div>
-          <div>${employee.department || ''} ${employee.position ? `- ${employee.position}` : ''}</div>
-          <div>Employee Code: ${employee.employeeCode || 'N/A'}</div>
-        </div>
+  try {
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]); // A4 size
+    const { width, height } = page.getSize();
+    
+    // Load fonts
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    
+    // Define colors
+    const yellow = rgb(0.984, 0.749, 0.141); // #fbbf24
+    const black = rgb(0.102, 0.102, 0.102); // #1a1a1a
+    const gray = rgb(0.4, 0.4, 0.4); // #666666
+    const lightGray = rgb(0.898, 0.898, 0.898); // #e5e5e5
+    const yellowLight = rgb(0.996, 0.953, 0.78); // #fef3c7
+    const yellowDark = rgb(0.573, 0.251, 0.055); // #92400e
+    
+    const margin = 50;
+    let yPosition = height - 70;
+    
+    // Header - Yellow line
+    page.drawRectangle({
+      x: margin,
+      y: yPosition + 20,
+      width: width - (margin * 2),
+      height: 3,
+      color: yellow,
+    });
+    
+    // Company Logo - HIVETECH
+    page.drawText('HIVE', {
+      x: (width - 220) / 2,
+      y: yPosition,
+      size: 28,
+      font: boldFont,
+      color: black,
+    });
+    page.drawText('TECH', {
+      x: (width - 220) / 2 + 90,
+      y: yPosition,
+      size: 28,
+      font: boldFont,
+      color: yellow,
+    });
+    
+    yPosition -= 20;
+    page.drawText('SOLUTION', {
+      x: (width - 80) / 2,
+      y: yPosition,
+      size: 11,
+      font: regularFont,
+      color: gray,
+    });
+    
+    yPosition -= 30;
+    page.drawText(receiptDate, {
+      x: width - margin - 200,
+      y: yPosition,
+      size: 9,
+      font: regularFont,
+      color: gray,
+    });
+    
+    // Title
+    yPosition -= 40;
+    page.drawText('SALARY SLIP', {
+      x: (width - 180) / 2,
+      y: yPosition,
+      size: 22,
+      font: boldFont,
+      color: black,
+    });
+    
+    // Yellow underline
+    yPosition -= 15;
+    page.drawRectangle({
+      x: (width - 150) / 2,
+      y: yPosition,
+      width: 150,
+      height: 3,
+      color: yellow,
+    });
+    
+    // Separator line
+    yPosition -= 30;
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 1,
+      color: lightGray,
+    });
+    
+    // Employee Information
+    yPosition -= 30;
+    const infoFontSize = 10;
+    
+    page.drawText('Employee Name:', { x: margin, y: yPosition, size: infoFontSize, font: regularFont, color: gray });
+    page.drawText(`${employee.firstName || ''} ${employee.lastName || ''}`, { x: margin + 130, y: yPosition, size: infoFontSize, font: boldFont, color: black });
+    
+    page.drawText('Month:', { x: width - margin - 250, y: yPosition, size: infoFontSize, font: regularFont, color: gray });
+    page.drawText(`${monthName} ${payroll.year}`, { x: width - margin - 120, y: yPosition, size: infoFontSize, font: boldFont, color: black });
+    
+    yPosition -= 20;
+    page.drawText('Designation:', { x: margin, y: yPosition, size: infoFontSize, font: regularFont, color: gray });
+    page.drawText(employee.position || 'N/A', { x: margin + 130, y: yPosition, size: infoFontSize, font: boldFont, color: black });
+    
+    page.drawText('Employee Code:', { x: width - margin - 250, y: yPosition, size: infoFontSize, font: regularFont, color: gray });
+    page.drawText(employee.employeeCode || 'N/A', { x: width - margin - 120, y: yPosition, size: infoFontSize, font: boldFont, color: black });
+    
+    yPosition -= 20;
+    page.drawText('Department:', { x: margin, y: yPosition, size: infoFontSize, font: regularFont, color: gray });
+    page.drawText(employee.department || 'N/A', { x: margin + 130, y: yPosition, size: infoFontSize, font: boldFont, color: black });
+    
+    // Separator line
+    yPosition -= 30;
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 1,
+      color: lightGray,
+    });
+    
+    // Earnings and Deductions sections
+    yPosition -= 30;
+    const columnWidth = (width - margin * 2 - 40) / 2;
+    
+    // Earnings Title
+    page.drawText('Earnings', { x: margin, y: yPosition, size: 13, font: boldFont, color: black });
+    page.drawRectangle({ x: margin, y: yPosition - 8, width: 120, height: 2, color: yellow });
+    
+    // Deductions Title
+    page.drawText('Deductions', { x: margin + columnWidth + 40, y: yPosition, size: 13, font: boldFont, color: black });
+    page.drawRectangle({ x: margin + columnWidth + 40, y: yPosition - 8, width: 120, height: 2, color: yellow });
+    
+    yPosition -= 30;
+    let earningsY = yPosition;
+    let deductionsY = yPosition;
+    const rowFontSize = 10;
+    const rowSpacing = 18;
+    
+    // Add earnings
+    page.drawText('Basic Salary', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+    page.drawText(`PKR ${formatCurrency(payroll.baseSalary)}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+    earningsY -= rowSpacing;
+    
+    if (payroll.allowances?.houseRent) {
+      page.drawText('House Rent Allowance', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.allowances.houseRent)}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+      earningsY -= rowSpacing;
+    }
+    
+    if (payroll.allowances?.transport) {
+      page.drawText('Transport Allowance', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.allowances.transport)}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+      earningsY -= rowSpacing;
+    }
+    
+    if (payroll.allowances?.medical) {
+      page.drawText('Medical Allowance', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.allowances.medical)}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+      earningsY -= rowSpacing;
+    }
+    
+    if ((payroll.allowances?.other || 0) + (payroll.overtime?.amount || 0) > 0) {
+      page.drawText('Utility Allowance', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency((payroll.allowances?.other || 0) + (payroll.overtime?.amount || 0))}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+      earningsY -= rowSpacing;
+    }
+    
+    if (payroll.commission) {
+      page.drawText('Commission', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.commission)}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+      earningsY -= rowSpacing;
+    }
+    
+    if (payroll.bonus) {
+      page.drawText('Bonus', { x: margin, y: earningsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.bonus)}`, { x: margin + columnWidth - 100, y: earningsY, size: rowFontSize, font: boldFont, color: black });
+      earningsY -= rowSpacing;
+    }
+    
+    // Add deductions
+    if (payroll.deductions?.providentFund) {
+      page.drawText('Provident Fund', { x: margin + columnWidth + 40, y: deductionsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.deductions.providentFund)}`, { x: width - margin - 100, y: deductionsY, size: rowFontSize, font: boldFont, color: black });
+      deductionsY -= rowSpacing;
+    }
+    
+    if (payroll.deductions?.tax) {
+      page.drawText('Tax', { x: margin + columnWidth + 40, y: deductionsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.deductions.tax)}`, { x: width - margin - 100, y: deductionsY, size: rowFontSize, font: boldFont, color: black });
+      deductionsY -= rowSpacing;
+    }
+    
+    if (payroll.deductions?.insurance) {
+      page.drawText('Insurance', { x: margin + columnWidth + 40, y: deductionsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.deductions.insurance)}`, { x: width - margin - 100, y: deductionsY, size: rowFontSize, font: boldFont, color: black });
+      deductionsY -= rowSpacing;
+    }
+    
+    if (payroll.deductions?.loan) {
+      page.drawText('Loan Deduction', { x: margin + columnWidth + 40, y: deductionsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.deductions.loan)}`, { x: width - margin - 100, y: deductionsY, size: rowFontSize, font: boldFont, color: black });
+      deductionsY -= rowSpacing;
+    }
+    
+    if (payroll.deductions?.other) {
+      page.drawText('Other Deductions', { x: margin + columnWidth + 40, y: deductionsY, size: rowFontSize, font: regularFont, color: black });
+      page.drawText(`PKR ${formatCurrency(payroll.deductions.other)}`, { x: width - margin - 100, y: deductionsY, size: rowFontSize, font: boldFont, color: black });
+      deductionsY -= rowSpacing;
+    }
+    
+    // Gross Earnings box
+    earningsY -= 10;
+    page.drawRectangle({
+      x: margin,
+      y: earningsY - 5,
+      width: columnWidth,
+      height: 25,
+      color: yellowLight,
+    });
+    
+    page.drawText('Gross Earnings', { x: margin + 5, y: earningsY + 3, size: rowFontSize, font: boldFont, color: yellowDark });
+    page.drawText(`PKR ${formatCurrency(grossEarnings)}`, { x: margin + columnWidth - 105, y: earningsY + 3, size: rowFontSize, font: boldFont, color: yellowDark });
+    
+    // Move below both sections
+    yPosition = Math.min(earningsY, deductionsY) - 40;
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 1,
+      color: lightGray,
+    });
+    
+    // Net Salary Section
+    yPosition -= 30;
+    page.drawRectangle({
+      x: margin,
+      y: yPosition - 35,
+      width: width - margin * 2,
+      height: 65,
+      color: rgb(0.98, 0.98, 0.98),
+    });
+    
+    page.drawText('Net Payable Salary', { x: margin + 10, y: yPosition, size: 14, font: boldFont, color: black });
+    yPosition -= 20;
+    page.drawText('In Words: Pakistan Rupees Only', { x: margin + 10, y: yPosition, size: 10, font: regularFont, color: gray });
+    yPosition -= 18;
+    page.drawText(`PKR ${formatCurrency(payroll.netSalary)}`, { x: margin + 10, y: yPosition, size: 12, font: boldFont, color: black });
+    
+    // Footer
+    yPosition -= 50;
+    page.drawRectangle({
+      x: margin,
+      y: yPosition,
+      width: width - margin * 2,
+      height: 2,
+      color: yellow,
+    });
+    
+    yPosition -= 20;
+    const footerText = 'HiveTech Solution | Email: info@hivetechsol.com | Phone: +92-XXX-XXXXXXX';
+    const footerWidth = regularFont.widthOfTextAtSize(footerText, 9);
+    page.drawText(footerText, {
+      x: (width - footerWidth) / 2,
+      y: yPosition,
+      size: 9,
+      font: regularFont,
+      color: gray,
+    });
+    
+    // Serialize PDF
+    const pdfBytes = await pdfDoc.save();
+    
+    // Set response headers
+    const employeeName = `${employee.firstName || ''}_${employee.lastName || ''}`.trim().replace(/\s+/g, '_');
+    const fileName = `Salary_Receipt_${employeeName}_${monthName}_${payroll.year}.pdf`;
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', pdfBytes.length);
+    
+    res.send(Buffer.from(pdfBytes));
 
-        <div class="section">
-          <div class="label">Payroll Details</div>
-          <table>
-            <tr>
-              <th>Base Salary</th>
-              <td>${formatCurrency(payroll.baseSalary)}</td>
-            </tr>
-            <tr>
-              <th>Commission</th>
-              <td>${formatCurrency(payroll.commission)}</td>
-            </tr>
-            <tr>
-              <th>Bonus</th>
-              <td>${formatCurrency(payroll.bonus)}</td>
-            </tr>
-            <tr>
-              <th>Total Allowances</th>
-              <td>${formatCurrency(payroll.totalAllowances)}</td>
-            </tr>
-            <tr>
-              <th>Total Deductions</th>
-              <td>${formatCurrency(payroll.totalDeductions)}</td>
-            </tr>
-            <tr>
-              <th>Overtime</th>
-              <td>${formatCurrency(payroll.overtime?.amount || 0)}</td>
-            </tr>
-            <tr class="total">
-              <th>Net Salary</th>
-              <td>${formatCurrency(payroll.netSalary)}</td>
-            </tr>
-          </table>
-        </div>
-
-        <div class="section">
-          <div class="label">Payment Date</div>
-          <div>${payroll.paymentDate ? new Date(payroll.paymentDate).toISOString().split('T')[0] : 'Pending'}</div>
-        </div>
-      </body>
-    </html>
-  `;
-
-  const fileName = `salary-receipt-${employee.employeeCode || payroll._id}-${payroll.year}-${payroll.month}.html`;
-
-  res.setHeader('Content-Type', 'text/html');
-  res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
-  res.status(200).send(html);
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate PDF receipt'
+    });
+  }
 });

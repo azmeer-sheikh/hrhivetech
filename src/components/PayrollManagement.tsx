@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DollarSign, Download, Calendar, CheckCircle, Clock, AlertCircle, FileDown, Pencil } from 'lucide-react';
 import { payrollAPI } from '../services/api';
 import { useAuth } from './AuthContext';
-import { Pagination } from './Pagination';
 
 interface Employee {
   id: number | string;
@@ -48,25 +48,23 @@ const formatPKR = (value: number) =>
 
 export function PayrollManagement({ employees }: PayrollManagementProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isAuthorized = user?.role === 'admin' || user?.role === 'hr';
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().substring(0, 7)
   );
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
-  const [showProcessModal, setShowProcessModal] = useState(false);
-  const [processingEmployees, setProcessingEmployees] = useState<string[]>([]);
-  const [commissionInputs, setCommissionInputs] = useState<Record<string, string>>({});
-  const [bonusInputs, setBonusInputs] = useState<Record<string, string>>({});
-  const [processStep, setProcessStep] = useState(1);
-  const [processPage, setProcessPage] = useState(1);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<PayrollRecord | null>(null);
   const [editValues, setEditValues] = useState({ baseSalary: '', commission: '', bonus: '' });
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [currentReceiptRecord, setCurrentReceiptRecord] = useState<PayrollRecord | null>(null);
 
   const departments = useMemo(() => {
     const uniqueDepartments = Array.from(
@@ -109,6 +107,12 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
 
   useEffect(() => {
     loadPayrolls();
+    
+    // Show success message if redirected from process page
+    if (searchParams.get('success') === 'true') {
+      // Clear the success param
+      navigate('/payroll', { replace: true });
+    }
   }, [selectedMonth, selectedDepartment, isAuthorized]);
 
   const getMonthlyStats = () => {
@@ -118,52 +122,6 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
     const paid = payrollRecords.filter(r => r.status === 'Paid').length;
 
     return { totalPayroll, pending, processed, paid };
-  };
-
-  const processPayroll = async () => {
-    if (processingEmployees.length === 0) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      await Promise.all(
-        processingEmployees.map(async (employeeId) => {
-          const employee = employees.find(emp => String(emp.id) === employeeId);
-          if (!employee) return;
-
-          const isSales = isSalesDepartment(employee.department);
-
-          const payload: Record<string, any> = {
-            employeeId: String(employee.id),
-            month: monthNumber,
-            year: yearNumber,
-            baseSalary: employee.salary,
-            status: 'Processed'
-          };
-
-          if (isSales) {
-            payload.commission = Number(commissionInputs[String(employeeId)] || 0);
-            payload.bonus = Number(bonusInputs[String(employeeId)] || 0);
-          }
-
-          return payrollAPI.create(payload);
-        })
-      );
-
-      await loadPayrolls();
-      setProcessingEmployees([]);
-      setCommissionInputs({});
-      setBonusInputs({});
-      setShowProcessModal(false);
-      setProcessStep(1);
-      setProcessPage(1);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to process payroll';
-      setError(message);
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   const updatePayrollStatus = async (recordId: string, status: PayrollRecord['status']) => {
@@ -191,19 +149,40 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
 
     try {
       const blob = await payrollAPI.downloadReceipt(record._id);
-      const fileName = `salary-receipt-${record.employee?.employeeCode || record._id}.html`;
+      
+      // Create blob URL for preview
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      setReceiptUrl(url);
+      setCurrentReceiptRecord(record);
+      setReceiptModalOpen(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to download receipt';
+      const message = err instanceof Error ? err.message : 'Failed to load receipt';
       setError(message);
     }
+  };
+
+  const handleDownloadFromModal = () => {
+    if (!receiptUrl || !currentReceiptRecord) return;
+
+    const employeeName = `${currentReceiptRecord.employee?.firstName || ''}_${currentReceiptRecord.employee?.lastName || ''}`.trim().replace(/\s+/g, '_');
+    const monthName = new Date(currentReceiptRecord.year, currentReceiptRecord.month - 1).toLocaleString('en-US', { month: 'long' });
+    const fileName = `Salary_Receipt_${employeeName}_${monthName}_${currentReceiptRecord.year}.pdf`;
+    
+    const link = document.createElement('a');
+    link.href = receiptUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const closeReceiptModal = () => {
+    if (receiptUrl) {
+      window.URL.revokeObjectURL(receiptUrl);
+    }
+    setReceiptModalOpen(false);
+    setReceiptUrl(null);
+    setCurrentReceiptRecord(null);
   };
 
   const exportToExcel = async () => {
@@ -307,18 +286,6 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
     ? employees
     : employees.filter(emp => emp.department === selectedDepartment);
 
-  const employeesWithoutPayroll = filteredEmployees.filter(
-    emp => !payrollRecords.some(r => r.employee?._id === String(emp.id))
-  );
-
-  const processPageSize = 8;
-  const totalProcessPages = Math.max(1, Math.ceil(employeesWithoutPayroll.length / processPageSize));
-  const pagedEmployees = employeesWithoutPayroll.slice(
-    (processPage - 1) * processPageSize,
-    processPage * processPageSize
-  );
-  const allSelected = employeesWithoutPayroll.length > 0 && employeesWithoutPayroll.every(emp => processingEmployees.includes(String(emp.id)));
-
   const showSalesColumns = payrollRecords.some(record =>
     isSalesDepartment(record.employee?.department)
   );
@@ -344,20 +311,11 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => {
-              setShowProcessModal(true);
-              setProcessStep(1);
-              setProcessPage(1);
-            }}
-            disabled={isProcessing}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => navigate(`/payroll/process?month=${selectedMonth}`)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            {isProcessing ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            ) : (
-              <DollarSign className="w-5 h-5" />
-            )}
-            <span>{isProcessing ? 'Processing...' : 'Process Payroll'}</span>
+            <DollarSign className="w-5 h-5" />
+            <span>Process Payroll</span>
           </button>
           <button 
             disabled={isExporting}
@@ -540,11 +498,7 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
             <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">No payroll records for this month</p>
             <button
-              onClick={() => {
-                setShowProcessModal(true);
-                setProcessStep(1);
-                setProcessPage(1);
-              }}
+              onClick={() => navigate(`/payroll/process?month=${selectedMonth}`)}
               className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               Process Payroll
@@ -552,216 +506,6 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
           </div>
         )}
       </div>
-
-      {/* Process Payroll Modal */}
-      {showProcessModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-gray-900">Process Payroll for {selectedMonth}</h2>
-              <p className="text-gray-500 mt-1">
-                {processStep === 1 ? 'Select employees to process payroll' : 'Review and confirm payroll'}
-              </p>
-            </div>
-
-            <div className="p-6">
-              {employeesWithoutPayroll.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <p className="text-gray-700">All employees have been processed for this month</p>
-                </div>
-              ) : processStep === 1 ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setProcessingEmployees(employeesWithoutPayroll.map(emp => String(emp.id)));
-                          } else {
-                            setProcessingEmployees([]);
-                          }
-                        }}
-                        className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                      />
-                      Select all employees
-                    </label>
-                    <p className="text-sm text-gray-500">
-                      Selected: {processingEmployees.length}
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {pagedEmployees.map((employee) => {
-                      const employeeKey = String(employee.id);
-                      return (
-                        <label
-                          key={employee.id}
-                          className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={processingEmployees.includes(employeeKey)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setProcessingEmployees([...processingEmployees, employeeKey]);
-                              } else {
-                                setProcessingEmployees(processingEmployees.filter(id => id !== employeeKey));
-                              }
-                            }}
-                            className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <div className="flex-1">
-                            <p className="text-gray-900">{employee.name}</p>
-                            <p className="text-gray-500">{employee.position} - {employee.department}</p>
-                          </div>
-                          <p className="text-gray-900">{formatPKR(employee.salary)}/mo</p>
-                        </label>
-                      );
-                    })}
-                  </div>
-
-                  <Pagination
-                    currentPage={processPage}
-                    totalPages={totalProcessPages}
-                    onPageChange={(page) => setProcessPage(page)}
-                    itemsPerPage={processPageSize}
-                    totalItems={employeesWithoutPayroll.length}
-                  />
-                </div>
-              ) : (
-                <div>
-                  <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <p className="text-sm text-indigo-900">
-                      Review and confirm payroll for <strong>{processingEmployees.length}</strong> employee{processingEmployees.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-                    {processingEmployees.map((employeeId) => {
-                      const employee = employees.find(emp => String(emp.id) === employeeId);
-                      if (!employee) return null;
-                      const salesEmployee = isSalesDepartment(employee.department);
-                      return (
-                        <div
-                          key={employeeId}
-                          className="flex flex-col gap-3 p-4 border border-gray-200 rounded-lg bg-white"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-gray-900 font-medium">{employee.name}</p>
-                              <p className="text-gray-500 text-sm">{employee.position} - {employee.department}</p>
-                            </div>
-                            <p className="text-gray-900 font-semibold">{formatPKR(employee.salary)}/mo</p>
-                        </div>
-
-                        {salesEmployee && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-sm text-gray-600">Commission (PKR)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={commissionInputs[employeeId] || ''}
-                                onChange={(e) =>
-                                  setCommissionInputs({
-                                    ...commissionInputs,
-                                    [employeeId]: e.target.value
-                                  })
-                                }
-                                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm text-gray-600">Bonus (PKR)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={bonusInputs[employeeId] || ''}
-                                onChange={(e) =>
-                                  setBonusInputs({
-                                    ...bonusInputs,
-                                    [employeeId]: e.target.value
-                                  })
-                                }
-                                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-gray-200">
-              <div className="flex gap-3">
-                {processStep === 1 ? (
-                  <button
-                    onClick={() => {
-                      if (processingEmployees.length === 0) {
-                        alert('Please select at least one employee');
-                        return;
-                      }
-                      setProcessStep(2);
-                    }}
-                    disabled={processingEmployees.length === 0}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (processingEmployees.length === 0) {
-                        alert('Please select at least one employee');
-                        return;
-                      }
-                      processPayroll();
-                    }}
-                    disabled={processingEmployees.length === 0 || isProcessing}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <span>{`Process ${processingEmployees.length} Employee${processingEmployees.length !== 1 ? 's' : ''}`}</span>
-                    )}
-                  </button>
-                )}
-                {processStep === 2 && (
-                  <button
-                    onClick={() => setProcessStep(1)}
-                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Back
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setShowProcessModal(false);
-                    setProcessingEmployees([]);
-                    setCommissionInputs({});
-                    setBonusInputs({});
-                    setProcessStep(1);
-                    setProcessPage(1);
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {editingRecord && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -824,6 +568,54 @@ export function PayrollManagement({ employees }: PayrollManagementProps) {
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Modal */}
+      {receiptModalOpen && receiptUrl && currentReceiptRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Salary Receipt - {currentReceiptRecord.employee?.firstName} {currentReceiptRecord.employee?.lastName}
+              </h3>
+              <button
+                onClick={closeReceiptModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* PDF Preview */}
+            <div className="flex-1 overflow-auto p-4 bg-gray-100">
+              <iframe
+                src={receiptUrl}
+                className="w-full h-full min-h-[600px] bg-white rounded shadow"
+                title="Salary Receipt"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={handleDownloadFromModal}
+                className="flex-1 px-6 py-3 bg-yellow-400 text-gray-900 rounded-lg hover:bg-yellow-500 transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Download Receipt
+              </button>
+              <button
+                onClick={closeReceiptModal}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Close
               </button>
             </div>
           </div>

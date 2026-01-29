@@ -20,6 +20,7 @@ import { UserManagement } from './components/UserManagement';
 import { EmployeePasswordGate } from './components/EmployeePasswordGate';
 import { AddEmployeePage } from './components/AddEmployeePage';
 import { PayrollManagement } from './components/PayrollManagement';
+import { ProcessPayroll } from './components/ProcessPayroll';
 import { Toaster } from './components/ui/sonner';
 import { employeeAPI } from './services/api';
 
@@ -396,6 +397,12 @@ function MainApp() {
             <Route 
               path="/payroll" 
               element={<PayrollManagement employees={employees} />} 
+            />
+            
+            {/* Process Payroll */}
+            <Route 
+              path="/payroll/process" 
+              element={<ProcessPayroll employees={employees} />} 
             />
             
             {/* Settings */}
