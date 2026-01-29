@@ -19,7 +19,7 @@ export function UserManagement() {
     username: '',
     name: '',
     email: '',
-    role: 'Admin' as 'Admin' | 'Super Admin',
+    role: 'admin' as 'admin' | 'super-admin' | 'hr' | 'manager' | 'employee',
     department: '',
     password: '',
   });
@@ -62,7 +62,7 @@ export function UserManagement() {
         username: '',
         name: '',
         email: '',
-        role: 'Admin',
+        role: 'admin',
         department: '',
         password: '',
       });
@@ -78,7 +78,7 @@ export function UserManagement() {
       updateUser(selectedUser.id, {
         name: formData.name,
         email: formData.email,
-        role: formData.role,
+          role: formData.role.toLowerCase(),
         department: formData.department,
       });
       
@@ -205,13 +205,13 @@ export function UserManagement() {
   };
 
   // Only Super Admin can access
-  if (user?.role !== 'Super Admin') {
+  if (user?.role !== 'super-admin' && user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="!text-gray-900 !mb-2">Access Denied</h3>
-          <p className="!text-gray-600 !mb-0">Only Super Admins can access user management</p>
+          <p className="!text-gray-600 !mb-0">Only Admins can access user management</p>
         </div>
       </div>
     );
@@ -287,12 +287,16 @@ export function UserManagement() {
                   <td className="px-6 py-4 !text-gray-700">{u.email}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                      u.role === 'Super Admin'
+                      u.role === 'super-admin'
                         ? 'bg-purple-100 text-purple-700'
-                        : 'bg-blue-100 text-blue-700'
+                        : u.role === 'admin'
+                        ? 'bg-blue-100 text-blue-700'
+                        : u.role === 'hr'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-700'
                     }`}>
                       <Shield className="w-3 h-3" />
-                      {u.role}
+                      {u.role.replace('-', ' ').toLowerCase()}
                     </span>
                   </td>
                   <td className="px-6 py-4 !text-gray-700">{u.department || '-'}</td>
@@ -318,7 +322,7 @@ export function UserManagement() {
                         onClick={() => handleDeleteUser(u.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                         title="Delete User"
-                        disabled={users.filter(usr => usr.role === 'Super Admin').length === 1 && u.role === 'Super Admin' || isDeletingId === u.id}
+                        disabled={users.filter(usr => usr.role === 'super-admin').length === 1 && u.role === 'super-admin' || isDeletingId === u.id}
                       >
                         {isDeletingId === u.id ? (
                           <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
@@ -380,11 +384,14 @@ export function UserManagement() {
                   <label className="block text-sm font-semibold !text-gray-700 mb-2">Role *</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'Admin' | 'Super Admin' })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value.toLowerCase() as 'admin' | 'super-admin' | 'hr' | 'manager' | 'employee' })}
                     className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
                   >
-                    <option value="Admin">Admin</option>
-                    <option value="Super Admin">Super Admin</option>
+                    <option value="admin">Admin</option>
+                    <option value="super-admin">Super Admin</option>
+                    <option value="hr">HR</option>
+                    <option value="manager">Manager</option>
+                    <option value="employee">Employee</option>
                   </select>
                 </div>
                 <div>
@@ -475,11 +482,14 @@ export function UserManagement() {
                   <label className="block text-sm font-semibold !text-gray-700 mb-2">Role *</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'Admin' | 'Super Admin' })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value.toLowerCase() as 'admin' | 'super-admin' | 'hr' | 'manager' | 'employee' })}
                     className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
                   >
-                    <option value="Admin">Admin</option>
-                    <option value="Super Admin">Super Admin</option>
+                    <option value="admin">Admin</option>
+                    <option value="super-admin">Super Admin</option>
+                    <option value="hr">HR</option>
+                    <option value="manager">Manager</option>
+                    <option value="employee">Employee</option>
                   </select>
                 </div>
                 <div>

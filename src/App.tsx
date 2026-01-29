@@ -19,6 +19,7 @@ import { Settings } from './components/Settings';
 import { UserManagement } from './components/UserManagement';
 import { EmployeePasswordGate } from './components/EmployeePasswordGate';
 import { AddEmployeePage } from './components/AddEmployeePage';
+import { PayrollManagement } from './components/PayrollManagement';
 import { Toaster } from './components/ui/sonner';
 import { employeeAPI } from './services/api';
 
@@ -193,6 +194,7 @@ function App() {
 function MainApp() {
   const { isAuthenticated } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // State Management
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
@@ -213,7 +215,7 @@ function MainApp() {
 
   const loadEmployeesFromBackend = async () => {
     try {
-      const response = await employeeAPI.getAll(1, 1000);
+      const response = await employeeAPI.getAll(1, 1000) as any;
       const data = response?.data || [];
       const formattedEmployees = data.map((emp: any) => ({
         _id: emp._id,
@@ -250,10 +252,12 @@ function MainApp() {
         setActiveTab={() => {}}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
+        isCollapsed={sidebarCollapsed}
+        setIsCollapsed={setSidebarCollapsed}
       />
       
       {/* Main Content - Scrollable with margin for sidebar */}
-      <div className="flex-1 flex flex-col lg:ml-72">
+      <div className={`flex-1 flex flex-col ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>
         {/* Header */}
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} setActiveTab={() => {}} />
         
@@ -391,7 +395,7 @@ function MainApp() {
             {/* Payroll Management */}
             <Route 
               path="/payroll" 
-              element={<DashboardOverview setActiveTab={() => {}} />} 
+              element={<PayrollManagement employees={employees} />} 
             />
             
             {/* Settings */}

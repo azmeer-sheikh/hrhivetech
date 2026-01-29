@@ -76,7 +76,7 @@ exports.createInterview = asyncHandler(async (req, res) => {
     const meetingLink = interview.meetingLink ? `<p style="margin:0 0 8px 0;"><strong>Meeting Link:</strong> <a href="${interview.meetingLink}">${interview.meetingLink}</a></p>` : '';
 
     const html = `
-      <div style="font-family: Arial, sans-serif; color: #111;">
+      <div style="font-family: 'Poppins', 'Entire'; color: #111;">
         <h2 style="margin: 0 0 12px 0;">Interview Scheduled</h2>
         <p style="margin: 0 0 8px 0;">Hello ${interview.candidateName || 'Candidate'},</p>
         <p style="margin: 0 0 12px 0;">Your interview has been scheduled. Here are the details:</p>

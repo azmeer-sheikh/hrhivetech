@@ -107,6 +107,77 @@ async function apiCall<T>(
   }
 }
 
+// Helper function to download files with auth
+async function apiDownload(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Blob> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = localStorage.getItem('authToken');
+
+  const headers: HeadersInit = {
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let errorMessage = `API Error: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (parseError) {
+        // Ignore
+      }
+
+      if (response.status === 401) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        window.location.href = '/';
+        throw new Error('Session expired. Please login again.');
+      }
+
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this resource.');
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    return response.blob();
+  } catch (error) {
+    if (isDevelopment) {
+      console.error(`❌ API Download Error: ${url}`, error);
+    }
+
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      throw new Error(
+        `Cannot connect to backend at ${API_BASE_URL}. Make sure the backend server is running on http://localhost:5000`
+      );
+    }
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout. Please try again.');
+    }
+
+    throw error;
+  }
+}
+
 // ==================== Authentication APIs ====================
 
 export const authAPI = {
@@ -377,6 +448,26 @@ export const payrollAPI = {
   delete: async (id: string) => {
     return apiCall(`/payroll/${id}`, {
       method: 'DELETE',
+    });
+  },
+  process: async (id: string) => {
+    return apiCall(`/payroll/${id}/process`, {
+      method: 'PATCH',
+    });
+  },
+  exportExcel: async (filters?: Record<string, any>) => {
+    const params = new URLSearchParams(
+      Object.entries(filters || {})
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([key, value]) => [key, String(value)])
+    );
+    return apiDownload(`/payroll/export/excel?${params}`, {
+      method: 'GET',
+    });
+  },
+  downloadReceipt: async (id: string) => {
+    return apiDownload(`/payroll/${id}/receipt`, {
+      method: 'GET',
     });
   },
 };

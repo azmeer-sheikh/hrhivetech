@@ -29,9 +29,11 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
 }
 
-export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,7 +77,16 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
     }
   ];
 
-  if (user?.role === 'Super Admin') {
+  if (user?.role === 'admin' || user?.role === 'hr') {
+    menuSections.push({
+      title: 'PAYROLL',
+      items: [
+        { id: 'payroll', path: '/payroll', label: 'Payroll Management', icon: DollarSign },
+      ]
+    });
+  }
+
+  if (user?.role === 'admin' || user?.role === 'super-admin') {
     menuSections.push({
       title: 'ADMINISTRATION',
       items: [
@@ -105,9 +116,10 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
 
       {/* Sidebar - Fixed Position */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 transform transition-all duration-300 ease-out flex flex-col shadow-2xl lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-out flex flex-col shadow-2xl lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ width: isCollapsed ? '5rem' : '18rem' }}
       >
         {/* Modern Background */}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}></div>
@@ -120,19 +132,29 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
           {/* Logo Section */}
           <div className="px-6 py-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
             <div className="relative">
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="hidden lg:flex items-center justify-center absolute -right-2 -top-2 w-7 h-7 bg-slate-800 text-slate-200 hover:text-white border border-slate-600 transition-all"
+                style={{ borderRadius: '5px' }}
+                title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                <ChevronRight className={`w-4 h-4 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+              </button>
               {/* Logo Container */}
-              <div className="mb-4 p-4 bg-white rounded-lg shadow-lg">
+              <div className={`mb-4 bg-white rounded-lg shadow-lg ${isCollapsed ? 'p-2' : 'p-4'}`}>
                 <img
                   src={logoImage}
                   alt="Hive Tech Solutions"
-                  className="h-20 w-auto object-contain mx-auto"
+                  className={`${isCollapsed ? 'h-10' : 'h-20'} w-auto object-contain mx-auto`}
                 />
               </div>
              
               {/* Company Info */}
-              <div className="text-center">
-                <p className="text-xs text-slate-400 font-medium">HR Management System</p>
-              </div>
+              {!isCollapsed && (
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 font-medium">HR Management System</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -140,27 +162,29 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
           <nav className="flex-1 px-4 py-4 overflow-y-auto custom-scrollbar">
             <div className="space-y-2">
               {menuSections.map((section, sectionIdx) => {
-                const isExpanded = expandedSection === section.title;
+                const isExpanded = isCollapsed ? true : expandedSection === section.title;
                
                 return (
                   <div key={sectionIdx} className="mb-5">
                     {/* Section Header */}
-                    <button
-                      onClick={() => toggleSection(section.title)}
-                      className="w-full group"
-                    >
-                      <div className="flex items-center gap-2 px-3 py-2 transition-all" style={{ borderRadius: '5px' }}>
-                        <h3 className="flex-1 text-xs font-bold text-slate-400 tracking-wide uppercase text-left group-hover:text-slate-200 transition-colors">
-                          {section.title}
-                        </h3>
-                       
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-all duration-300 ${
-                            isExpanded ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </div>
-                    </button>
+                    {!isCollapsed && (
+                      <button
+                        onClick={() => toggleSection(section.title)}
+                        className="w-full group"
+                      >
+                        <div className="flex items-center gap-2 px-3 py-2 transition-all" style={{ borderRadius: '5px' }}>
+                          <h3 className="flex-1 text-xs font-bold text-slate-400 tracking-wide uppercase text-left group-hover:text-slate-200 transition-colors">
+                            {section.title}
+                          </h3>
+                         
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-all duration-300 ${
+                              isExpanded ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </button>
+                    )}
                    
                     {/* Menu Items */}
                     <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
@@ -204,11 +228,13 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
                             >
                               <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
                              
-                              <span className={`flex-1 text-sm font-medium text-left ${isActive ? 'font-semibold' : ''}`}>
-                                {item.label}
-                              </span>
+                              {!isCollapsed && (
+                                <span className={`flex-1 text-sm font-medium text-left ${isActive ? 'font-semibold' : ''}`}>
+                                  {item.label}
+                                </span>
+                              )}
                              
-                              {isActive && (
+                              {isActive && !isCollapsed && (
                                 <div className="w-1.5 h-1.5 bg-white" style={{ borderRadius: '50%' }}></div>
                               )}
                             </div>
@@ -224,14 +250,15 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
 
           {/* Bottom Section */}
           <div className="border-t px-4 py-4" style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-            
             <button
               onClick={logout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all ${
+                isCollapsed ? 'justify-center' : ''
+              }`}
               style={{ borderRadius: '5px' }}
             >
               <LogOut className="w-4 h-4" />
-              <span className="text-sm font-medium">Logout</span>
+              {!isCollapsed && <span className="text-sm font-medium">Logout</span>}
             </button>
           </div>
         </div>

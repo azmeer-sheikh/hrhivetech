@@ -43,6 +43,10 @@ const payrollSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  commission: {
+    type: Number,
+    default: 0
+  },
   totalAllowances: {
     type: Number,
     default: 0
@@ -89,21 +93,28 @@ const payrollSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Calculate totals before saving
-payrollSchema.pre('save', function(next) {
+// Calculate totals before validation/saving
+payrollSchema.pre('validate', function(next) {
   // Calculate total allowances
-  this.totalAllowances = Object.values(this.allowances).reduce((sum, val) => sum + val, 0);
+  this.totalAllowances = Object.values(this.allowances).reduce((sum, val) => sum + (val || 0), 0);
   
   // Calculate total deductions
-  this.totalDeductions = Object.values(this.deductions).reduce((sum, val) => sum + val, 0);
+  this.totalDeductions = Object.values(this.deductions).reduce((sum, val) => sum + (val || 0), 0);
   
   // Calculate overtime amount
-  if (this.overtime.hours && this.overtime.rate) {
+  if (this.overtime && this.overtime.hours && this.overtime.rate) {
     this.overtime.amount = this.overtime.hours * this.overtime.rate;
   }
   
-  // Calculate net salary
-  this.netSalary = this.baseSalary + this.totalAllowances + this.overtime.amount + this.bonus - this.totalDeductions;
+  // Calculate net salary - ensure all values are numbers
+  const baseSal = Number(this.baseSalary) || 0;
+  const totalAllow = Number(this.totalAllowances) || 0;
+  const overtimeAmt = (this.overtime && Number(this.overtime.amount)) || 0;
+  const comm = Number(this.commission) || 0;
+  const bon = Number(this.bonus) || 0;
+  const totalDed = Number(this.totalDeductions) || 0;
+  
+  this.netSalary = baseSal + totalAllow + overtimeAmt + comm + bon - totalDed;
   
   next();
 });

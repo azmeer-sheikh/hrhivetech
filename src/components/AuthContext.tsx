@@ -1,18 +1,30 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authAPI } from '../services/api';
 
+type UserRole = 'admin' | 'hr' | 'manager' | 'employee' | 'super-admin';
+
 interface User {
   id: string;
   username: string;
+  name?: string;
   email: string;
-  role: 'admin' | 'hr' | 'manager' | 'employee';
+  role: UserRole;
   department?: string;
   avatar?: string;
   employeeId?: string;
 }
 
+interface ManagedUser extends User {
+  password: string;
+}
+
 interface AuthContextType {
   user: User | null;
+  users: User[];
+  addUser: (data: Omit<ManagedUser, 'id'>) => void;
+  updateUser: (id: string, data: Partial<Omit<ManagedUser, 'password'>>) => void;
+  deleteUser: (id: string) => void;
+  changePassword: (id: string, currentPassword: string, newPassword: string) => boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -23,24 +35,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Default users with passwords stored separately
-const defaultUsers = [
+const defaultUsers: ManagedUser[] = [
   {
     id: 'user-1',
     username: 'admin',
+    name: 'System Admin',
     email: 'admin@hr-portal.com',
-    role: 'admin' as const,
+    role: 'admin',
     department: 'Management',
     avatar: '',
+    password: 'admin123'
   },
   {
     id: 'user-2',
     username: 'hr_manager',
+    name: 'HR Manager',
     email: 'hr@hr-portal.com',
-    role: 'hr' as const,
+    role: 'hr',
     department: 'Human Resources',
     avatar: '',
-  },
+    password: 'hr123456'
+  }
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -48,6 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>(() => {
+    const stored = localStorage.getItem('managedUsers');
+    if (stored) {
+      try {
+        return JSON.parse(stored) as ManagedUser[];
+      } catch (err) {
+        localStorage.removeItem('managedUsers');
+      }
+    }
+    return defaultUsers;
+  });
 
   // Load user and token from localStorage on mount
   useEffect(() => {
@@ -66,6 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('managedUsers', JSON.stringify(managedUsers));
+  }, [managedUsers]);
+
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
@@ -76,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData: User = {
         id: response.id,
         username: response.username,
+        name: response.name || response.username,
         email: response.email,
         role: response.role,
         employeeId: response.employeeId,
@@ -115,12 +146,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addUser = (data: Omit<ManagedUser, 'id'>) => {
+    const newUser: ManagedUser = {
+      ...data,
+      id: `user-${Date.now()}`,
+    };
+    setManagedUsers(prev => [...prev, newUser]);
+  };
+
+  const updateUser = (id: string, data: Partial<Omit<ManagedUser, 'password'>>) => {
+    setManagedUsers(prev =>
+      prev.map(u => (u.id === id ? { ...u, ...data } : u))
+    );
+  };
+
+  const deleteUser = (id: string) => {
+    setManagedUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  const changePassword = (id: string, currentPassword: string, newPassword: string) => {
+    let success = false;
+    setManagedUsers(prev =>
+      prev.map(u => {
+        if (u.id !== id) return u;
+        if (u.password !== currentPassword) return u;
+        success = true;
+        return { ...u, password: newPassword };
+      })
+    );
+    return success;
+  };
+
   return (
     <AuthContext.Provider 
       value={{ 
-        user, 
-        login, 
-        logout, 
+        user,
+        users: managedUsers.map(({ password, ...rest }) => rest),
+        addUser,
+        updateUser,
+        deleteUser,
+        changePassword,
+        login,
+        logout,
         isAuthenticated: !!user && !!token,
         isLoading,
         error,
