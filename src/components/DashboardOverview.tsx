@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, UserCheck, Building2, Clock, Calendar, Palmtree, FileText, TrendingUp, Bell, Award, FileCheck, Users2, Megaphone, Gift, BarChart3, DollarSign } from 'lucide-react';
 import { announcementAPI, holidayAPI, analyticsAPI } from '../services/api';
 
-export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
+export function DashboardOverview({ setActiveTab }: { setActiveTab?: (tab: string) => void }) {
+  const navigate = useNavigate();
   const todayISO = new Date().toISOString().split('T')[0];
 
   const [recentActivities, setRecentActivities] = useState<Array<{
@@ -182,7 +184,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-blue-600',
       iconRing: 'ring-4 ring-blue-100',
       iconColor: 'text-white',
-      tab: 'daily-attendance',
+      path: '/daily-attendance',
     },
     {
       title: 'Employees',
@@ -195,7 +197,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-emerald-600',
       iconRing: 'ring-4 ring-emerald-100',
       iconColor: 'text-white',
-      tab: 'employees',
+      path: '/employees',
     },
     {
       title: 'Attendance Records',
@@ -208,7 +210,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-blue-500',
       iconRing: 'ring-4 ring-sky-100 ring-offset-2 ring-offset-white',
       iconColor: 'text-white',
-      tab: 'attendance',
+      path: '/attendance',
     },
     {
       title: 'Leave Management',
@@ -221,7 +223,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-amber-600',
       iconRing: 'ring-4 ring-amber-100',
       iconColor: 'text-white',
-      tab: 'leaves',
+      path: '/leave-management',
     },
     {
       title: 'Documents',
@@ -234,7 +236,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-purple-600',
       iconRing: 'ring-4 ring-purple-100',
       iconColor: 'text-white',
-      tab: 'documents',
+      path: '/documents',
     },
     {
       title: 'Interviews',
@@ -247,7 +249,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-amber-600',
       iconRing: 'ring-4 ring-amber-100 ring-offset-2 ring-offset-white',
       iconColor: 'text-white',
-      tab: 'interviews',
+      path: '/interviews',
     },
     {
       title: 'Announcements',
@@ -260,7 +262,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-red-600',
       iconRing: 'ring-4 ring-red-100',
       iconColor: 'text-white',
-      tab: 'announcements',
+      path: '/announcements',
     },
     {
       title: 'Holidays',
@@ -273,7 +275,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-red-500',
       iconRing: 'ring-4 ring-rose-100 ring-offset-2 ring-offset-white',
       iconColor: 'text-white',
-      tab: 'holidays',
+      path: '/holidays',
     },
     {
       title: 'Analytics',
@@ -286,7 +288,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-indigo-600',
       iconRing: 'ring-4 ring-indigo-100',
       iconColor: 'text-white',
-      tab: 'analytics',
+      path: '/analytics',
     },
     {
       title: 'Labor Cost',
@@ -299,7 +301,7 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
       iconBg: 'bg-yellow-500',
       iconRing: 'ring-4 ring-yellow-100',
       iconColor: 'text-gray-900',
-      tab: 'labor-cost',
+      path: '/labor-cost',
     },
   ];
 
@@ -365,7 +367,12 @@ export function DashboardOverview({ setActiveTab }: { setActiveTab: (tab: string
               return (
                 <button
                   key={index}
-                  onClick={() => setActiveTab(action.tab)}
+                  onClick={() => {
+                    if (setActiveTab) {
+                      setActiveTab(action.path.replace('/', ''));
+                    }
+                    navigate(action.path);
+                  }}
                   className={`group relative overflow-hidden ${action.cardBg} border ${action.border} rounded-lg p-4 flex flex-col items-center gap-3 transition-all duration-200 hover:shadow-md cursor-pointer transform hover:scale-105 active:scale-95`}
                 >
                   {/* Background Gradient on Hover */}

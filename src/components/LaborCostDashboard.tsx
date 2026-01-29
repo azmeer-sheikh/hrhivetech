@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { DollarSign, Users, TrendingUp, Clock, Filter, Download, Activity } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -211,27 +212,21 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
     return { totalCost, count, avgHourlyRate };
   }, [filteredEmployees]);
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const csvData = [
-      ['Employee Name', 'Department', 'Hourly Rate (PKR)', 'Clock-In Time', 'Hours Worked', 'Cost So Far (PKR)'],
-      ...filteredEmployees.map(emp => [
-        emp.name,
-        emp.department,
-        emp.hourlyRate.toFixed(2),
-        emp.clockInTime,
-        formatHoursMinutes(emp.hoursWorked),
-        emp.costSoFar.toFixed(2),
-      ])
-    ];
+  // Export to Excel
+  const exportToExcel = () => {
+    const data = filteredEmployees.map(emp => ({
+      'Employee Name': emp.name,
+      'Department': emp.department,
+      'Hourly Rate (PKR)': emp.hourlyRate.toFixed(2),
+      'Clock-In Time': emp.clockInTime,
+      'Hours Worked': formatHoursMinutes(emp.hoursWorked),
+      'Cost So Far (PKR)': emp.costSoFar.toFixed(2),
+    }));
 
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `labor-cost-${today}.csv`;
-    a.click();
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Labor Cost');
+    XLSX.writeFile(wb, `labor-cost-${today}.xlsx`);
   };
 
   // Calculate projected daily total (if all work 8 hours)
@@ -347,9 +342,9 @@ export function LaborCostDashboard({ employees, attendanceRecords }: LaborCostDa
                 </SelectContent>
               </Select>
 
-              <Button onClick={exportToCSV} variant="outline" className="gap-2">
+              <Button onClick={exportToExcel} variant="outline" className="gap-2">
                 <Download className="w-4 h-4" />
-                Export CSV
+                Export Excel
               </Button>
             </div>
           </div>

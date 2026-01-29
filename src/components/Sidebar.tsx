@@ -20,6 +20,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logoImage from 'figma:asset/c925f6086a012a655204c0b0c72411a7f42246f3.png';
 import { useAuth } from './AuthContext';
 
@@ -32,6 +33,8 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const toggleSection = (sectionTitle: string) => {
@@ -42,32 +45,32 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
     {
       title: 'MAIN',
       items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'daily-attendance', label: 'Daily Attendance', icon: ClipboardList },
+        { id: 'dashboard', path: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'daily-attendance', path: '/daily-attendance', label: 'Daily Attendance', icon: ClipboardList },
       ]
     },
     {
       title: 'EMPLOYEE MANAGEMENT',
       items: [
-        { id: 'employees', label: 'Employees', icon: Users },
-        { id: 'attendance', label: 'Attendance Records', icon: Calendar },
-        { id: 'leaves', label: 'Leave Management', icon: Palmtree },
-        { id: 'documents', label: 'Documents', icon: FileText },
+        { id: 'employees', path: '/employees', label: 'Employees', icon: Users },
+        { id: 'attendance', path: '/attendance', label: 'Attendance Records', icon: Calendar },
+        { id: 'leave-management', path: '/leave-management', label: 'Leave Management', icon: Palmtree },
+        { id: 'documents', path: '/documents', label: 'Documents', icon: FileText },
       ]
     },
     {
       title: 'RECRUITMENT',
       items: [
-        { id: 'interviews', label: 'Interviews', icon: UserPlus },
+        { id: 'interviews', path: '/interviews', label: 'Interviews', icon: UserPlus },
       ]
     },
     {
       title: 'ORGANIZATION',
       items: [
-        { id: 'announcements', label: 'Announcements', icon: Bell },
-        { id: 'holidays', label: 'Holidays', icon: CalendarDays },
-        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-        { id: 'labor-cost', label: 'Labor Cost Dashboard', icon: DollarSign },
+        { id: 'announcements', path: '/announcements', label: 'Announcements', icon: Bell },
+        { id: 'holidays', path: '/holidays', label: 'Holidays', icon: CalendarDays },
+        { id: 'analytics', path: '/analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'labor-cost', path: '/labor-cost', label: 'Labor Cost Dashboard', icon: DollarSign },
       ]
     }
   ];
@@ -76,7 +79,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
     menuSections.push({
       title: 'ADMINISTRATION',
       items: [
-        { id: 'user-management', label: 'User Management', icon: Shield },
+        { id: 'user-management', path: '/user-management', label: 'User Management', icon: Shield },
       ]
     });
   }
@@ -163,15 +166,15 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
                     <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${
                       isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                     }`}>
-                      {section.items.map((item) => {
+                      {section.items.map((item: any) => {
                         const Icon = item.icon;
-                        const isActive = activeTab === item.id;
+                        const isActive = location.pathname === item.path || (item.path === '/' && location.pathname === '');
                        
                         return (
                           <button
                             key={item.id}
                             onClick={() => {
-                              setActiveTab(item.id);
+                              navigate(item.path);
                               if (window.innerWidth < 1024) {
                                 setIsOpen(false);
                               }

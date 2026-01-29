@@ -35,6 +35,8 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const [documentName, setDocumentName] = useState('');
   const [documentType, setDocumentType] = useState<Document['documentType']>('Contract');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -431,25 +433,64 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
               <div className="space-y-5">
-                {/* Employee Selection */}
-                <div className="space-y-2">
+                {/* Employee Selection with Predictive Search */}
+                <div className="space-y-2 relative">
                   <label className="block text-gray-900 font-medium text-sm">
                     Select Employee <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
-                    style={{ borderRadius: '5px' }}
-                    required
-                  >
-                    <option value="">Choose an employee</option>
-                    {employees.map(emp => (
-                      <option key={emp._id || emp.id} value={emp._id || emp.id}>
-                        {emp.name} - {emp.position}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search by name or position..."
+                      value={employeeSearchTerm}
+                      onChange={(e) => {
+                        setEmployeeSearchTerm(e.target.value);
+                        setShowEmployeeDropdown(true);
+                      }}
+                      onFocus={() => setShowEmployeeDropdown(true)}
+                      className="w-full px-4 py-2.5 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+                      style={{ borderRadius: '5px' }}
+                      required={!selectedEmployee}
+                    />
+                    
+                    {/* Dropdown */}
+                    {showEmployeeDropdown && employees.filter(emp => {
+                      const searchLower = employeeSearchTerm.toLowerCase();
+                      const empName = (emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()).toLowerCase();
+                      const empPosition = (emp.position || '').toLowerCase();
+                      return !searchLower || empName.includes(searchLower) || empPosition.includes(searchLower);
+                    }).length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                        {employees.filter(emp => {
+                          const searchLower = employeeSearchTerm.toLowerCase();
+                          const empName = (emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()).toLowerCase();
+                          const empPosition = (emp.position || '').toLowerCase();
+                          return !searchLower || empName.includes(searchLower) || empPosition.includes(searchLower);
+                        }).map(emp => (
+                          <button
+                            key={emp._id || emp.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedEmployee(String(emp._id || emp.id));
+                              setEmployeeSearchTerm(emp.name || `${emp.firstName} ${emp.lastName}`);
+                              setShowEmployeeDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          >
+                            <div className="font-medium text-gray-900">{emp.name || `${emp.firstName} ${emp.lastName}`}</div>
+                            <div className="text-xs text-gray-500">{emp.position}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Selected Employee Display */}
+                    {selectedEmployee && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Selected</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Document Type */}
@@ -504,6 +545,10 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                       e.stopPropagation();
                       const file = e.dataTransfer.files?.[0];
                       if (file) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast.error('File size exceeds 10MB limit. Please select a smaller file.', { position: 'top-center' });
+                          return;
+                        }
                         setSelectedFile(file);
                         setDocumentName(file.name.replace(/\.[^.]+$/, ''));
                       }
@@ -529,6 +574,10 @@ export function Documents({ employees, documents, setDocuments }: DocumentsProps
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast.error('File size exceeds 10MB limit. Please select a smaller file.', { position: 'top-center' });
+                          return;
+                        }
                         setSelectedFile(file);
                         setDocumentName(file.name.replace(/\.[^.]+$/, ''));
                       }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -17,6 +18,7 @@ import { Login } from './components/Login';
 import { Settings } from './components/Settings';
 import { UserManagement } from './components/UserManagement';
 import { EmployeePasswordGate } from './components/EmployeePasswordGate';
+import { AddEmployeePage } from './components/AddEmployeePage';
 import { Toaster } from './components/ui/sonner';
 import { employeeAPI } from './services/api';
 
@@ -190,7 +192,6 @@ function App() {
 
 function MainApp() {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // State Management
@@ -241,95 +242,12 @@ function MainApp() {
     return <Login />;
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardOverview setActiveTab={setActiveTab} />;
-      case 'daily-attendance':
-        return (
-          <DailyAttendance
-            employees={employees}
-            attendanceRecords={attendanceRecords}
-            setAttendanceRecords={setAttendanceRecords}
-          />
-        );
-      case 'employees':
-        return (
-          <EmployeePasswordGate>
-            <EmployeeManagement employees={employees} setEmployees={setEmployees} />
-          </EmployeePasswordGate>
-        );
-      case 'attendance':
-        return (
-          <AttendanceTracking
-            employees={employees}
-            attendanceRecords={attendanceRecords}
-            setAttendanceRecords={setAttendanceRecords}
-          />
-        );
-      case 'leaves':
-        return (
-          <LeaveManagement
-            employees={employees}
-            leaveRequests={leaveRequests}
-            setLeaveRequests={setLeaveRequests}
-            leaveBalances={leaveBalances}
-            setLeaveBalances={setLeaveBalances}
-          />
-        );
-      case 'documents':
-        return (
-          <Documents
-            employees={employees}
-            documents={documents}
-            setDocuments={setDocuments}
-          />
-        );
-      case 'interviews':
-        return <InterviewManagement interviews={interviews} setInterviews={setInterviews} />;
-      case 'announcements':
-        return (
-          <Announcements
-            announcements={announcements}
-            setAnnouncements={setAnnouncements}
-          />
-        );
-      case 'holidays':
-        return (
-          <Holidays
-            holidays={holidays}
-            setHolidays={setHolidays}
-          />
-        );
-      case 'analytics':
-        return (
-          <Analytics
-            employees={employees}
-            attendanceRecords={attendanceRecords}
-          />
-        );
-      case 'labor-cost':
-        return (
-          <LaborCostDashboard
-            employees={employees}
-            attendanceRecords={attendanceRecords}
-          />
-        );
-      case 'settings':
-        return <Settings />;
-      case 'user-management':
-        return <UserManagement />;
-      default:
-        return <DashboardOverview />;
-    }
-  };
-
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar - Fixed on left */}
       <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab}
+        activeTab="" 
+        setActiveTab={() => {}}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
       />
@@ -337,11 +255,154 @@ function MainApp() {
       {/* Main Content - Scrollable with margin for sidebar */}
       <div className="flex-1 flex flex-col lg:ml-72">
         {/* Header */}
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} setActiveTab={setActiveTab} />
+        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} setActiveTab={() => {}} />
         
         {/* Content Area */}
         <main className="flex-1 p-8">
-          {renderContent()}
+          <Routes>
+            {/* Dashboard */}
+            <Route path="/" element={<DashboardOverview setActiveTab={() => {}} />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            
+            {/* Daily Attendance */}
+            <Route 
+              path="/daily-attendance" 
+              element={
+                <DailyAttendance
+                  employees={employees}
+                  attendanceRecords={attendanceRecords}
+                  setAttendanceRecords={setAttendanceRecords}
+                />
+              } 
+            />
+            
+            {/* Employees */}
+            <Route 
+              path="/employees/new" 
+              element={
+                <EmployeePasswordGate>
+                  <AddEmployeePage employees={employees} setEmployees={setEmployees} />
+                </EmployeePasswordGate>
+              } 
+            />
+            <Route 
+              path="/employees" 
+              element={
+                <EmployeePasswordGate>
+                  <EmployeeManagement employees={employees} setEmployees={setEmployees} />
+                </EmployeePasswordGate>
+              } 
+            />
+            
+            {/* Attendance Tracking */}
+            <Route 
+              path="/attendance" 
+              element={
+                <AttendanceTracking
+                  employees={employees}
+                  attendanceRecords={attendanceRecords}
+                  setAttendanceRecords={setAttendanceRecords}
+                />
+              } 
+            />
+            
+            {/* Leave Management */}
+            <Route 
+              path="/leave-management" 
+              element={
+                <LeaveManagement
+                  employees={employees}
+                  leaveRequests={leaveRequests}
+                  setLeaveRequests={setLeaveRequests}
+                  leaveBalances={leaveBalances}
+                  setLeaveBalances={setLeaveBalances}
+                />
+              } 
+            />
+            
+            {/* Documents */}
+            <Route 
+              path="/documents" 
+              element={
+                <Documents
+                  employees={employees}
+                  documents={documents}
+                  setDocuments={setDocuments}
+                />
+              } 
+            />
+            
+            {/* Interviews */}
+            <Route 
+              path="/interviews" 
+              element={<InterviewManagement interviews={interviews} setInterviews={setInterviews} />} 
+            />
+            
+            {/* Announcements */}
+            <Route 
+              path="/announcements" 
+              element={
+                <Announcements
+                  announcements={announcements}
+                  setAnnouncements={setAnnouncements}
+                />
+              } 
+            />
+            
+            {/* Holidays */}
+            <Route 
+              path="/holidays" 
+              element={
+                <Holidays
+                  holidays={holidays}
+                  setHolidays={setHolidays}
+                />
+              } 
+            />
+            
+            {/* Analytics */}
+            <Route 
+              path="/analytics" 
+              element={
+                <Analytics
+                  employees={employees}
+                  attendanceRecords={attendanceRecords}
+                />
+              } 
+            />
+            
+            {/* Labor Cost Dashboard */}
+            <Route 
+              path="/labor-cost" 
+              element={
+                <LaborCostDashboard
+                  employees={employees}
+                  attendanceRecords={attendanceRecords}
+                />
+              } 
+            />
+            
+            {/* Performance Management */}
+            <Route 
+              path="/performance" 
+              element={<DashboardOverview setActiveTab={() => {}} />} 
+            />
+            
+            {/* Payroll Management */}
+            <Route 
+              path="/payroll" 
+              element={<DashboardOverview setActiveTab={() => {}} />} 
+            />
+            
+            {/* Settings */}
+            <Route path="/settings" element={<Settings />} />
+            
+            {/* User Management */}
+            <Route path="/user-management" element={<UserManagement />} />
+            
+            {/* Catch all - redirect to dashboard */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
       </div>
     </div>

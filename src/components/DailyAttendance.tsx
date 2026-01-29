@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Coffee, Search, Calendar as CalendarIcon, Users, Lock, Eye, EyeOff, Download, Filter, TrendingUp } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Pagination } from './Pagination';
 import { attendanceAPI } from '../services/api';
 import { toast } from 'sonner';
@@ -460,30 +461,24 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
     }
   };
 
-  const exportToCSV = () => {
+  const exportToExcel = () => {
     const selectedDateRecords = attendanceRecords.filter(r => r.date === selectedDate);
-    const csvData = [
-      ['Name', 'Department', 'Position', 'Status', 'Check In', 'Marked At'],
-      ...selectedDateRecords.map(record => {
-        const emp = employees.find(e => String(e.id) === String(record.employeeId) || String(e._id) === String(record.employeeId));
-        return [
-          emp?.name || '',
-          emp?.department || '',
-          emp?.position || '',
-          record.status,
-          record.checkIn || 'N/A',
-          new Date(record.markedAt || '').toLocaleString()
-        ];
-      })
-    ];
+    const data = selectedDateRecords.map(record => {
+      const emp = employees.find(e => String(e.id) === String(record.employeeId) || String(e._id) === String(record.employeeId));
+      return {
+        'Name': emp?.name || '',
+        'Department': emp?.department || '',
+        'Position': emp?.position || '',
+        'Status': record.status,
+        'Check In': record.checkIn || 'N/A',
+        'Marked At': new Date(record.markedAt || '').toLocaleString()
+      };
+    });
 
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance-${selectedDate}.csv`;
-    a.click();
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+    XLSX.writeFile(wb, `attendance-${selectedDate}.xlsx`);
   };
 
   const getTodayAttendance = (employeeId: number | string) => {
@@ -609,12 +604,12 @@ export function DailyAttendance({ employees, attendanceRecords, setAttendanceRec
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={exportToCSV}
+              onClick={exportToExcel}
               disabled={todayStats.total === todayStats.unmarked}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 !text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              Export CSV
+              Export Excel
             </button>
             <button
               onClick={() => setIsPasswordAuthenticated(false)}

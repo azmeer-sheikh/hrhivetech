@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit2, Trash2, Mail, Phone, MapPin, Upload, X, FileSpreadsheet, FileText } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { Pagination } from './Pagination';
@@ -31,6 +32,7 @@ interface EmployeeManagementProps {
 }
 
 export function EmployeeManagement({ employees, setEmployees }: EmployeeManagementProps) {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -45,9 +47,17 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
     lastName: '',
     email: '',
     phone: '',
+    cnic: '',
     employeeCode: '',
     dateOfBirth: '',
     gender: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+    },
     position: '',
     department: '',
     salary: '',
@@ -111,11 +121,21 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
   const buildExportRows = (list: Employee[]) => {
     return list.map((emp, idx) => ({
       'Sr No': idx + 1,
-      'Name': emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+      'First Name': emp.firstName || '',
+      'Last Name': emp.lastName || '',
+      'Full Name': emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
       'Email': emp.email,
-      'Mobile Number': emp.phone,
+      'Phone': emp.phone,
+      'CNIC': emp.cnic || '',
+      'Position': emp.position,
       'Department': emp.department,
       'Salary': emp.salary,
+      'Address (Street)': emp.address?.street || '',
+      'Address (City)': emp.address?.city || '',
+      'Address (State)': emp.address?.state || '',
+      'Address (Zip)': emp.address?.zipCode || '',
+      'Address (Country)': emp.address?.country || '',
+      'Status': emp.status,
     }));
   };
 
@@ -127,11 +147,21 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       const fullData = (fullResp as any)?.data || employees;
       const formatted = fullData.map((emp: any, idx: number) => ({
         'Sr No': idx + 1,
-        'Name': `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        'First Name': emp.firstName || '',
+        'Last Name': emp.lastName || '',
+        'Full Name': `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
         'Email': emp.email,
-        'Mobile Number': emp.phone,
+        'Phone': emp.phone,
+        'CNIC': emp.cnic || '',
+        'Position': emp.position,
         'Department': emp.department,
         'Salary': emp.salary,
+        'Address (Street)': emp.address?.street || '',
+        'Address (City)': emp.address?.city || '',
+        'Address (State)': emp.address?.state || '',
+        'Address (Zip)': emp.address?.zipCode || '',
+        'Address (Country)': emp.address?.country || '',
+        'Status': emp.status,
       }));
       const ws = XLSX.utils.json_to_sheet(formatted);
       const wb = XLSX.utils.book_new();
@@ -187,9 +217,11 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
+        cnic: formData.cnic || undefined,
         employeeCode: formData.employeeCode,
         dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender,
+        address: formData.address,
         position: formData.position,
         department: formData.department,
         salary: parseFloat(formData.salary),
@@ -237,9 +269,17 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         lastName: '',
         email: '',
         phone: '',
+        cnic: '',
         employeeCode: '',
         dateOfBirth: '',
         gender: '',
+        address: {
+          street: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: '',
+        },
         position: '',
         department: '',
         salary: '',
@@ -274,9 +314,17 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
       lastName: employee.lastName || employee.name?.split(' ').slice(1).join(' ') || '',
       email: employee.email,
       phone: employee.phone,
+      cnic: employee.cnic || '',
       employeeCode: employee.employeeCode || '',
       dateOfBirth: formatDateForInput(employee.dateOfBirth),
       gender: employee.gender || '',
+      address: employee.address || {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: '',
+      },
       position: employee.position,
       department: employee.department,
       salary: employee.salary.toString(),
@@ -377,24 +425,7 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
         </div>
         <button
           onClick={() => {
-            setEditingEmployee(null);
-            setFormData({
-              firstName: '',
-              lastName: '',
-              email: '',
-              phone: '',
-              employeeCode: '',
-              dateOfBirth: '',
-              gender: '',
-              position: '',
-              department: '',
-              salary: '',
-              joiningDate: '',
-              status: 'Active',
-              imageUrl: '',
-            });
-            setImagePreview(null);
-            setShowModal(true);
+            navigate('/employees/new');
           }}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors"
@@ -660,6 +691,20 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                   />
                 </div>
 
+                {/* CNIC */}
+                <div className="space-y-1.5">
+                  <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                    CNIC
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cnic}
+                    onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
+                    placeholder="XXXXX-XXXXXXX-X"
+                    className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+
                 {/* Employee Code */}
                 <div className="space-y-1.5">
                   <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
@@ -704,6 +749,81 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+
+                {/* Address Fields Section */}
+                <div className="md:col-span-3 space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="!text-slate-800 text-sm font-semibold uppercase tracking-wide !mb-3">Address Information</h4>
+                  
+                  {/* Street */}
+                  <div className="space-y-1.5">
+                    <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                      Street Address
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address.street}
+                      onChange={(e) => setFormData({ ...formData, address: { ...formData.address, street: e.target.value } })}
+                      placeholder="House no., Street name"
+                      className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+
+                  {/* City and State */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.address.city}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, city: e.target.value } })}
+                        placeholder="City"
+                        className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                        State/Province
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.address.state}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, state: e.target.value } })}
+                        placeholder="State/Province"
+                        className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Zip Code and Country */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                        Zip/Postal Code
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.address.zipCode}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, zipCode: e.target.value } })}
+                        placeholder="12345"
+                        className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block !text-slate-800 text-xs font-semibold uppercase tracking-wide">
+                        Country
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.address.country}
+                        onChange={(e) => setFormData({ ...formData, address: { ...formData.address, country: e.target.value } })}
+                        placeholder="Country"
+                        className="w-full px-3 py-2 border-l-4 border-blue-500 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Position */}
@@ -824,6 +944,10 @@ export function EmployeeManagement({ employees, setEmployees }: EmployeeManageme
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast.error('Image size exceeds 10MB limit. Please select a smaller image.', { position: 'top-center' });
+                                return;
+                              }
                               const reader = new FileReader();
                               reader.onloadend = () => {
                                 setImagePreview(reader.result as string);
